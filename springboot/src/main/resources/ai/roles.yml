@@ -1,0 +1,41 @@
+roles:
+  - id: system_operator
+    name: 系统操作员
+    type: operator
+    streaming: false
+    temperature: 0.2
+    topP: 0.5
+    knowledgeBase: system
+    description: 执行型指令，支持操作日志与回滚
+  - id: note_assistant
+    name: 笔记助手
+    type: knowledge
+    streaming: true
+    temperature: 1.0
+    topP: 0.95
+    knowledgeBase: notes
+    description: 基于当前用户笔记库回答并输出引用片段
+  - id: life_hub_butler
+    name: 生活中心管家
+    type: knowledge
+    streaming: true
+    temperature: 0.9
+    topP: 0.95
+    knowledgeBase: life
+    description: 基于生活中心数据做提醒、趋势和建议
+  - id: learning_center_mentor
+    name: 学习中心导师
+    type: knowledge
+    streaming: true
+    temperature: 1.0
+    topP: 0.95
+    knowledgeBase: learning
+    description: 基于学习中心数据进行路径规划与薄弱点诊断
+  - id: creative_partner
+    name: 创作搭档
+    type: creative
+    streaming: true
+    temperature: 1.1
+    topP: 0.95
+    knowledgeBase: none
+    description: 高思维活跃度创意对话角色

@@ -1,0 +1,71 @@
+﻿# ====================
+# Java / Spring Boot
+# ====================
+springboot/target/
+springboot/*.log
+springboot/hs_err_*.log
+springboot/replay_*.log
+springboot/*.jar
+springboot/*.jpg
+springboot/*.png
+springboot/*.gif
+springboot/dev-application.log*
+springboot/logs/
+
+# ====================
+# Vue / Node
+# ====================
+vue/node_modules/
+vue/dist/
+vue/.vite/
+vue/*.log
+vue/.env.local
+vue/.env.development
+vue/.env.production
+vue/package-lock.json
+
+# ====================
+# IDE
+# ====================
+.idea/
+.vscode/
+*.iml
+
+# ====================
+# OS
+# ====================
+.DS_Store
+Thumbs.db
+
+# ====================
+# Misc
+# ====================
+*.class
+*.log
+*.tmp
+*~
+
+# ====================
+# Logs (root)
+# ====================
+logs/
+*.log
+*.gz
+
+# ====================
+# Claude Code
+# ====================
+.claude/
+
+# ====================
+# Environment
+# ====================
+.env
+.env.local
+
+# ====================
+# Deploy / Docs
+# ====================
+deploy/
+docs/
+files/
