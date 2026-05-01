@@ -1,11 +1,14 @@
 package com.example.service;
 
 import com.example.entity.User;
+import com.example.entity.Tag;
 import com.example.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,6 +22,15 @@ public class UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private TagService tagService;
+
+    @Autowired
+    private ExpenseCategoryService expenseCategoryService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * 新增用户
@@ -103,17 +115,83 @@ public class UserService {
     /**
      * 用户注册
      */
-    public void register(User user) {
+    @Transactional
+    public User register(User user) {
+        validateRegisterUser(user);
+
+        String username = user.getUsername().trim();
+        String name = user.getName() == null ? "" : user.getName().trim();
+
         // 检查用户名是否已存在
-        User dbUser = userMapper.selectByUsername(user.getUsername());
+        User dbUser = userMapper.selectByUsername(username);
         if (dbUser != null) {
             throw new RuntimeException("用户名已存在");
         }
+        user.setUsername(username);
+        user.setName(name.isEmpty() ? username : name);
         // 加密密码
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         // 设置默认角色
         user.setRole("USER");
         userMapper.insert(user);
+        initializeNewUserData(user);
+        return user;
+    }
+
+    private void validateRegisterUser(User user) {
+        if (user == null) {
+            throw new RuntimeException("注册参数不完整");
+        }
+        if (isBlank(user.getUsername())) {
+            throw new RuntimeException("请输入账号");
+        }
+        if (user.getUsername().trim().length() < 3 || user.getUsername().trim().length() > 32) {
+            throw new RuntimeException("账号长度需为 3-32 位");
+        }
+        if (!user.getUsername().trim().matches("^[A-Za-z0-9_]+$")) {
+            throw new RuntimeException("账号只能包含字母、数字和下划线");
+        }
+        if (isBlank(user.getPassword())) {
+            throw new RuntimeException("请输入密码");
+        }
+        if (user.getPassword().length() < 6 || user.getPassword().length() > 64) {
+            throw new RuntimeException("密码长度需为 6-64 位");
+        }
+        if (user.getName() != null && user.getName().trim().length() > 32) {
+            throw new RuntimeException("昵称不能超过 32 个字符");
+        }
+    }
+
+    private void initializeNewUserData(User user) {
+        Integer userId = user.getId();
+        if (userId == null) {
+            return;
+        }
+        tagService.createTags(createDefaultTags(userId));
+        expenseCategoryService.initDefault(userId);
+        notificationService.initializeWelcome(userId, user.getName());
+    }
+
+    private List<Tag> createDefaultTags(Integer userId) {
+        List<Tag> tags = new ArrayList<>();
+        tags.add(defaultTag(userId, "学习", "#2563EB", "课程、阅读和技能成长"));
+        tags.add(defaultTag(userId, "生活", "#059669", "日常记录和个人安排"));
+        tags.add(defaultTag(userId, "预算", "#F59E0B", "消费复盘和预算相关"));
+        tags.add(defaultTag(userId, "复盘", "#0F172A", "阶段总结和行动回顾"));
+        return tags;
+    }
+
+    private Tag defaultTag(Integer userId, String name, String color, String description) {
+        Tag tag = new Tag();
+        tag.setUserId(userId);
+        tag.setName(name);
+        tag.setColor(color);
+        tag.setDescription(description);
+        return tag;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     /**

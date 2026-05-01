@@ -1,6 +1,5 @@
 <template>
   <div class="life-layout">
-    <el-page-header content="生活" icon="" />
     <router-view />
   </div>
 </template>
@@ -9,5 +8,9 @@
 </script>
 
 <style scoped>
-.life-layout { padding: 16px; }
+.life-layout {
+  display: grid;
+  gap: 14px;
+  padding: 0;
+}
 </style>

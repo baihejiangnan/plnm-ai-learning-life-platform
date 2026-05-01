@@ -1,7 +1,9 @@
 package com.example.controller;
 
 import com.example.common.Result;
+import com.example.dto.RegisterRequest;
 import com.example.entity.User;
+import com.example.service.CaptchaService;
 import com.example.service.LogoutLogService;
 import com.example.service.UserService;
 import com.example.utils.JwtUtil;
@@ -31,6 +33,9 @@ public class UserController {
 
     @Autowired
     private LogoutLogService logoutLogService;
+
+    @Autowired
+    private CaptchaService captchaService;
 
     /**
      * 新增用户
@@ -121,10 +126,20 @@ public class UserController {
      * 用户注册
      */
     @PostMapping("/register")
-    public Result register(@RequestBody User user) {
+    public Result register(@RequestBody RegisterRequest request) {
         try {
+            if (!captchaService.validate(request.getCaptchaId(), request.getCaptchaCode())) {
+                return Result.error("验证码错误或已过期");
+            }
+
+            User user = new User();
+            user.setUsername(request.getUsername());
+            user.setPassword(request.getPassword());
+            user.setName(request.getName());
+
             // 仅将明文密码透传到业务层，在业务层统一加密，避免重复加密
-            userService.register(user);
+            User created = userService.register(user);
+            created.setPassword(null);
             return Result.success("注册成功");
         } catch (Exception e) {
             return Result.error("注册失败：" + e.getMessage());

@@ -2,7 +2,6 @@ package com.example.service;
 
 import com.example.entity.AiAuditLog;
 import com.example.service.AiQuickActionService.RolePrompt;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -19,8 +18,8 @@ import java.util.UUID;
 @Service
 public class AiStreamService {
 
-    @Autowired(required = false)
-    private OpenAiChatModel openAiChatModel;
+    @Autowired
+    private DeepSeekChatClient deepSeekChatClient;
 
     @Autowired
     private AiRoleConfigService aiRoleConfigService;
@@ -60,7 +59,7 @@ public class AiStreamService {
         }
 
         sendMeta(emitter, prompt.getIntent(), prompt.getCitations(), traceId);
-        if (openAiChatModel == null) {
+        if (!deepSeekChatClient.isConfigured()) {
             sendChunk(emitter, prompt.getFallbackReply());
             complete(emitter);
             return emitter;
@@ -68,13 +67,7 @@ public class AiStreamService {
         long start = System.currentTimeMillis();
         StringBuilder buffer = new StringBuilder();
         Flux<String> flux;
-        try {
-            flux = (Flux<String>) openAiChatModel.getClass().getMethod("stream", String.class).invoke(openAiChatModel, prompt.getPrompt());
-        } catch (Exception e) {
-            sendChunk(emitter, prompt.getFallbackReply());
-            complete(emitter);
-            return emitter;
-        }
+        flux = deepSeekChatClient.stream(prompt.getPrompt(), role.getTemperature(), role.getTopP());
 
         flux.subscribe(
                 chunk -> {
@@ -114,7 +107,7 @@ public class AiStreamService {
     private void sendChunk(SseEmitter emitter, String chunk) {
         if (!StringUtils.hasText(chunk)) return;
         try {
-            emitter.send(SseEmitter.event().name("chunk").data(chunk), MediaType.TEXT_EVENT_STREAM);
+            emitter.send(SseEmitter.event().name("chunk").data(chunk));
         } catch (IOException ignored) {
         }
     }
@@ -125,14 +118,14 @@ public class AiStreamService {
                     "intent", intent,
                     "citations", citations == null ? List.of() : citations,
                     "traceId", traceId
-            )), MediaType.TEXT_EVENT_STREAM);
+            ), MediaType.APPLICATION_JSON));
         } catch (IOException ignored) {
         }
     }
 
     private void emitError(SseEmitter emitter, String message) {
         try {
-            emitter.send(SseEmitter.event().name("error").data(message), MediaType.TEXT_EVENT_STREAM);
+            emitter.send(SseEmitter.event().name("error").data(message));
         } catch (IOException ignored) {
         } finally {
             emitter.complete();
@@ -141,7 +134,7 @@ public class AiStreamService {
 
     private void complete(SseEmitter emitter) {
         try {
-            emitter.send(SseEmitter.event().name("done").data("[DONE]"), MediaType.TEXT_EVENT_STREAM);
+            emitter.send(SseEmitter.event().name("done").data("[DONE]"));
         } catch (IOException ignored) {
         } finally {
             emitter.complete();

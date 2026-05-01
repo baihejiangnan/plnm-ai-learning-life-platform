@@ -4,11 +4,11 @@ import com.example.entity.AiAuditLog;
 import com.example.service.AiAuditLogService;
 import com.example.service.AiQuickActionService;
 import com.example.service.AiQuickActionService.RolePrompt;
+import com.example.service.DeepSeekChatClient;
 import com.example.service.AiRoleConfigService;
 import com.example.service.AiStreamCacheService;
 import com.example.utils.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -28,8 +28,8 @@ import java.util.UUID;
 @Component
 public class AiChatWebSocketHandler extends TextWebSocketHandler {
 
-    @Autowired(required = false)
-    private OpenAiChatModel openAiChatModel;
+    @Autowired
+    private DeepSeekChatClient deepSeekChatClient;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -105,7 +105,7 @@ public class AiChatWebSocketHandler extends TextWebSocketHandler {
         }
         sendEvent(session, "meta", Map.of("intent", prompt.getIntent(), "citations", prompt.getCitations(), "traceId", traceId));
 
-        if (openAiChatModel == null) {
+        if (!deepSeekChatClient.isConfigured()) {
             String fallback = prompt.getFallbackReply();
             aiStreamCacheService.append(traceId, userId, fallback);
             sendEvent(session, "chunk", Map.of("data", fallback));
@@ -116,15 +116,7 @@ public class AiChatWebSocketHandler extends TextWebSocketHandler {
         long start = System.currentTimeMillis();
         StringBuilder buffer = new StringBuilder();
         Flux<String> flux;
-        try {
-            flux = (Flux<String>) openAiChatModel.getClass().getMethod("stream", String.class).invoke(openAiChatModel, prompt.getPrompt());
-        } catch (Exception e) {
-            String fallback = prompt.getFallbackReply();
-            aiStreamCacheService.append(traceId, userId, fallback);
-            sendEvent(session, "chunk", Map.of("data", fallback));
-            sendEvent(session, "done", Map.of("ok", true));
-            return;
-        }
+        flux = deepSeekChatClient.stream(prompt.getPrompt(), role.getTemperature(), role.getTopP());
 
         flux.subscribe(
                 chunk -> {

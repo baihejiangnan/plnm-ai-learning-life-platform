@@ -57,8 +57,8 @@ const routes = [
           {
             path: 'password',
             name: 'Password',
-            component: () => import('@/views/manager/Password.vue'),
-            meta: { title: '修改密码', requiresAuth: true }
+            redirect: { path: '/person/info', query: { section: 'password' } },
+            meta: { title: '个人信息', requiresAuth: true }
           }
         ]
       },

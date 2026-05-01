@@ -1,82 +1,155 @@
 <template>
-  <div class="page-wrap">
-    <section class="page-hero gradient-ai">
+  <div class="audit-page">
+    <section class="audit-hero">
       <div class="hero-left">
         <el-icon class="hero-icon"><DataAnalysis /></el-icon>
         <div class="hero-text">
           <h2>AI 审计日志</h2>
-          <p>追踪多角色对话与执行记录</p>
+          <p>追踪多角色对话、执行结果、延迟和上下文调用记录</p>
         </div>
+      </div>
+      <div class="hero-actions">
+        <el-button :loading="loading" @click="fetchList">
+          <el-icon><RefreshRight /></el-icon>
+          刷新
+        </el-button>
+        <el-button type="primary" @click="resetFilters">
+          <el-icon><Filter /></el-icon>
+          重置筛选
+        </el-button>
       </div>
     </section>
 
-    <el-card class="card-block">
-      <template #header>
-        <div class="card-header">
-          <div class="filters">
-            <el-select v-model="filters.roleId" placeholder="角色" clearable style="width: 160px">
-              <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
-            </el-select>
-            <el-select v-model="filters.success" placeholder="结果" clearable style="width: 120px">
-              <el-option label="成功" :value="1" />
-              <el-option label="失败" :value="0" />
-            </el-select>
-            <el-date-picker
-              v-model="filters.range"
-              type="datetimerange"
-              start-placeholder="开始时间"
-              end-placeholder="结束时间"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 320px"
-            />
-            <el-input v-model="filters.keyword" placeholder="搜索请求/响应" clearable style="max-width: 200px" />
-            <el-button text :loading="loading" @click="fetchList">刷新</el-button>
-          </div>
-          <el-button text @click="resetFilters">重置</el-button>
+    <section class="audit-summary">
+      <article v-for="item in summaryCards" :key="item.label" class="summary-card">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small>{{ item.help }}</small>
+      </article>
+    </section>
+
+    <section class="audit-filters">
+      <el-select v-model="filters.roleId" placeholder="角色" clearable>
+        <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
+      </el-select>
+      <el-select v-model="filters.success" placeholder="结果" clearable>
+        <el-option label="成功" :value="1" />
+        <el-option label="失败" :value="0" />
+      </el-select>
+      <el-date-picker
+        v-model="filters.range"
+        type="datetimerange"
+        start-placeholder="开始时间"
+        end-placeholder="结束时间"
+        value-format="YYYY-MM-DD HH:mm:ss"
+      />
+      <el-input v-model="filters.keyword" placeholder="搜索请求、响应或 traceId" clearable @keyup.enter="applyFilters" />
+      <el-button type="primary" :loading="loading" @click="applyFilters">查询</el-button>
+    </section>
+
+    <section class="audit-workbench" v-loading="loading">
+      <div class="audit-list-panel">
+        <div class="list-head">
+          <strong>日志列表</strong>
+          <span>{{ total }} 条</span>
         </div>
-      </template>
-
-      <el-table :data="list" v-loading="loading" class="audit-table">
-        <el-table-column prop="createdTime" label="时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.createdTime) }}</template>
-        </el-table-column>
-        <el-table-column prop="roleId" label="角色" width="160">
-          <template #default="{ row }">{{ roleLabel(row.roleId) }}</template>
-        </el-table-column>
-        <el-table-column prop="actionType" label="类型" width="150" />
-        <el-table-column prop="module" label="模块" width="120" />
-        <el-table-column label="请求" min-width="220">
-          <template #default="{ row }">{{ row.requestText || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="响应" min-width="220">
-          <template #default="{ row }">{{ row.responseText || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="latencyMs" label="耗时(ms)" width="120" />
-        <el-table-column label="结果" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.success === 1 ? 'success' : 'danger'">{{ row.success === 1 ? '成功' : '失败' }}</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pager">
-        <el-pagination
-          background
-          layout="total, sizes, prev, pager, next"
-          :total="total"
-          :page-size="pageSize"
-          :current-page="page"
-          @size-change="onSizeChange"
-          @current-change="onPageChange"
-        />
+        <div class="audit-list">
+          <button
+            v-for="row in list"
+            :key="row.id"
+            type="button"
+            :class="['audit-row', { active: selectedLog?.id === row.id }]"
+            @click="selectLog(row)"
+          >
+            <span :class="['status-dot', row.success === 1 ? 'success' : 'danger']"></span>
+            <span class="row-main">
+              <span class="row-title">
+                <b>{{ roleLabel(row.roleId) }}</b>
+                <em>{{ row.actionType || '-' }}</em>
+              </span>
+              <span class="row-preview">{{ row.requestText || '无请求内容' }}</span>
+            </span>
+            <span class="row-side">
+              <span>{{ formatShortTime(row.createdTime) }}</span>
+              <strong>{{ formatLatency(row.latencyMs) }}</strong>
+            </span>
+          </button>
+          <el-empty v-if="!list.length && !loading" description="暂无审计记录" />
+        </div>
+        <div class="pager">
+          <el-pagination
+            background
+            layout="total, sizes, prev, pager, next"
+            :total="total"
+            :page-size="pageSize"
+            :current-page="page"
+            @size-change="onSizeChange"
+            @current-change="onPageChange"
+          />
+        </div>
       </div>
-    </el-card>
+
+      <aside class="audit-detail-panel">
+        <template v-if="selectedLog">
+          <div class="detail-head">
+            <div>
+              <span class="detail-kicker">Trace</span>
+              <h3>{{ selectedLog.traceId || `#${selectedLog.id}` }}</h3>
+            </div>
+            <el-tag :type="selectedLog.success === 1 ? 'success' : 'danger'">
+              {{ selectedLog.success === 1 ? '成功' : '失败' }}
+            </el-tag>
+          </div>
+
+          <div class="detail-grid">
+            <div>
+              <span>角色</span>
+              <strong>{{ roleLabel(selectedLog.roleId) }}</strong>
+            </div>
+            <div>
+              <span>模块</span>
+              <strong>{{ selectedLog.module || '-' }}</strong>
+            </div>
+            <div>
+              <span>类型</span>
+              <strong>{{ selectedLog.actionType || '-' }}</strong>
+            </div>
+            <div>
+              <span>耗时</span>
+              <strong>{{ formatLatency(selectedLog.latencyMs) }}</strong>
+            </div>
+          </div>
+
+          <section class="detail-block">
+            <header>
+              <strong>请求内容</strong>
+              <el-button text size="small" @click="copyText(selectedLog.requestText)">复制</el-button>
+            </header>
+            <pre>{{ selectedLog.requestText || '-' }}</pre>
+          </section>
+
+          <section class="detail-block">
+            <header>
+              <strong>响应内容</strong>
+              <el-button text size="small" @click="copyText(selectedLog.responseText)">复制</el-button>
+            </header>
+            <pre>{{ selectedLog.responseText || '-' }}</pre>
+          </section>
+
+          <div class="detail-footer">
+            <span>{{ formatTime(selectedLog.createdTime) }}</span>
+            <el-button text @click="copyText(selectedLog.traceId)">复制 Trace</el-button>
+          </div>
+        </template>
+        <el-empty v-else description="选择一条日志查看详情" />
+      </aside>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { DataAnalysis } from '@element-plus/icons-vue'
+import { computed, onMounted, ref } from 'vue'
+import { DataAnalysis, Filter, RefreshRight } from '@element-plus/icons-vue'
 import { aiApi } from '@/api'
 import { ElMessage } from 'element-plus'
 
@@ -86,6 +159,7 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const selectedLog = ref(null)
 const filters = ref({
   roleId: '',
   success: null,
@@ -98,6 +172,20 @@ const roleLabel = (roleId) => {
   return r ? r.name : roleId || '-'
 }
 
+const successCount = computed(() => list.value.filter(i => i.success === 1).length)
+const failedCount = computed(() => list.value.filter(i => i.success !== 1).length)
+const avgLatency = computed(() => {
+  const values = list.value.map(i => Number(i.latencyMs || 0)).filter(i => Number.isFinite(i) && i > 0)
+  if (!values.length) return 0
+  return Math.round(values.reduce((sum, item) => sum + item, 0) / values.length)
+})
+const summaryCards = computed(() => [
+  { label: '当前页记录', value: list.value.length, help: `总计 ${total.value} 条` },
+  { label: '成功', value: successCount.value, help: '当前筛选结果' },
+  { label: '失败', value: failedCount.value, help: '需要重点复查' },
+  { label: '平均耗时', value: formatLatency(avgLatency.value), help: '当前页估算' }
+])
+
 const formatTime = (value) => {
   if (!value) return '-'
   try {
@@ -105,6 +193,23 @@ const formatTime = (value) => {
   } catch {
     return value
   }
+}
+
+const formatShortTime = (value) => {
+  if (!value) return '-'
+  try {
+    const d = new Date(value)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return value
+  }
+}
+
+const formatLatency = (value) => {
+  const ms = Number(value || 0)
+  if (!Number.isFinite(ms) || ms <= 0) return '-'
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`
+  return `${Math.round(ms)}ms`
 }
 
 const buildParams = () => {
@@ -141,6 +246,7 @@ const fetchList = async () => {
       const data = res.data || {}
       list.value = data.list || []
       total.value = data.total || 0
+      selectedLog.value = list.value[0] || null
     } else {
       ElMessage.error(res.msg || '获取日志失败')
     }
@@ -148,6 +254,28 @@ const fetchList = async () => {
     ElMessage.error(e?.message || '获取日志失败')
   } finally {
     loading.value = false
+  }
+}
+
+const applyFilters = () => {
+  page.value = 1
+  fetchList()
+}
+
+const selectLog = (row) => {
+  selectedLog.value = row
+}
+
+const copyText = async (text) => {
+  if (!text) {
+    ElMessage.warning('没有可复制的内容')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(String(text))
+    ElMessage.success('已复制')
+  } catch {
+    ElMessage.error('复制失败')
   }
 }
 
@@ -175,21 +303,351 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-wrap { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
-.page-hero { color: #fff; padding: 16px 20px; border-radius: 12px; display:flex; align-items:center; justify-content:space-between; }
-.gradient-ai { background: linear-gradient(90deg, #5b7cff 0%, #6bc4ff 100%); }
-.hero-left { display:flex; align-items:center; gap: 10px; }
-.hero-icon{ font-size: 26px; }
-.hero-text h2{ margin:0; font-size:18px; }
-.hero-text p{ margin:0; opacity:.9; font-size:13px; }
-.card-block { border-radius: 12px; }
-.card-header { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
-.filters { display:flex; align-items:center; gap: 8px; flex-wrap: wrap; }
-.audit-table :deep(.el-table__header th) { background: #f6f9ff; color: #3a4b6a; }
-.pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+.audit-page {
+  display: grid;
+  gap: 14px;
+}
 
-@media (max-width: 768px) {
-  .page-hero { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .filters { width: 100%; }
+.audit-hero,
+.audit-filters,
+.audit-workbench,
+.summary-card,
+.audit-list-panel,
+.audit-detail-panel {
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(33, 54, 86, 0.05);
+}
+
+.audit-hero {
+  min-height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+
+.hero-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  color: #1f6feb;
+  background: #e9f2ff;
+  font-size: 22px;
+}
+
+.hero-text h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.hero-text p {
+  margin: 6px 0 0;
+  color: #66758b;
+  font-size: 13px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-card {
+  min-height: 92px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.summary-card span,
+.summary-card small {
+  color: #66758b;
+  font-size: 12px;
+}
+
+.summary-card strong {
+  color: #172033;
+  font-size: 26px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-filters {
+  display: grid;
+  grid-template-columns: 170px 130px minmax(280px, 360px) minmax(220px, 1fr) auto;
+  gap: 10px;
+  padding: 12px;
+}
+
+.audit-workbench {
+  min-height: 600px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 0;
+  overflow: hidden;
+}
+
+.audit-list-panel,
+.audit-detail-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.audit-list-panel {
+  min-width: 0;
+  border-right: 1px solid #d7e1ec;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.list-head {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid #e4ebf3;
+}
+
+.list-head strong {
+  color: #172033;
+}
+
+.list-head span {
+  color: #66758b;
+  font-size: 12px;
+}
+
+.audit-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.audit-row {
+  width: 100%;
+  min-height: 76px;
+  border: 1px solid #e4ebf3;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 86px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 10px;
+  background: #fbfdff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.audit-row:hover,
+.audit-row.active {
+  border-color: #bed6ff;
+  background: #e9f2ff;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #dc2626;
+}
+
+.status-dot.success {
+  background: #16a34a;
+}
+
+.row-main,
+.row-side,
+.row-title {
+  min-width: 0;
+  display: grid;
+}
+
+.row-title {
+  grid-template-columns: minmax(0, auto) auto;
+  justify-content: start;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-title b {
+  color: #172033;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row-title em {
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: #1557c0;
+  background: #dbeafe;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.row-preview {
+  margin-top: 6px;
+  color: #66758b;
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row-side {
+  justify-items: end;
+  gap: 6px;
+  color: #66758b;
+  font-size: 12px;
+}
+
+.row-side strong {
+  color: #172033;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border-top: 1px solid #e4ebf3;
+}
+
+.audit-detail-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 14px;
+  background: #f7fafc;
+  overflow-y: auto;
+}
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.detail-kicker {
+  color: #66758b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detail-head h3 {
+  max-width: 290px;
+  margin: 4px 0 0;
+  color: #172033;
+  font-size: 15px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.detail-grid > div,
+.detail-block {
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.detail-grid > div {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+}
+
+.detail-grid span {
+  color: #66758b;
+  font-size: 12px;
+}
+
+.detail-grid strong {
+  color: #172033;
+}
+
+.detail-block {
+  overflow: hidden;
+}
+
+.detail-block header,
+.detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e4ebf3;
+}
+
+.detail-block header strong {
+  color: #172033;
+}
+
+.detail-block pre {
+  max-height: 220px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  color: #334155;
+  background: #fbfdff;
+  font-family: "Microsoft YaHei", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-footer {
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #66758b;
+  font-size: 12px;
+}
+
+@media (max-width: 1180px) {
+  .audit-summary,
+  .audit-filters,
+  .audit-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-list-panel {
+    border-right: 0;
+    border-bottom: 1px solid #d7e1ec;
+  }
 }
 </style>

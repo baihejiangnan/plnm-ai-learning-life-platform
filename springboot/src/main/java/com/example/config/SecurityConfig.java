@@ -51,7 +51,9 @@ public class SecurityConfig {
                 // 配置请求授权
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
-                        .requestMatchers("/", "/login", "/register", "/api/user/register", "/api/user/login", "/api/user/logout").permitAll()
+                        .requestMatchers("/", "/login", "/register", "/api/captcha", "/api/user/register", "/api/user/login", "/api/user/logout").permitAll()
+                        // SSE 流接口在控制器内通过 token 参数校验，避免异步 dispatch 被二次鉴权拦截
+                        .requestMatchers("/api/ai/stream", "/api/ai/stream/resume").permitAll()
                         // 文件下载接口
                         .requestMatchers("/files/download/**").permitAll()
                         // Swagger文档接口

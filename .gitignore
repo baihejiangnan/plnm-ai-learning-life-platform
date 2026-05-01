@@ -49,6 +49,8 @@ Thumbs.db
 # Logs (root)
 # ====================
 logs/
+dev-logs/
+output/
 *.log
 *.gz
 

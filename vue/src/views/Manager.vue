@@ -1,236 +1,201 @@
 <template>
-  <div class="manager-container">
-    <!-- 顶部导航栏 -->
-    <header :class="['header', { 'is-scrolled': contentScrolled }]">
-      <div class="header-left">
-        <div class="logo-container">
-          <div class="logo-icon">
-            <el-icon size="28" color="#1890ff"><Document /></el-icon>
-          </div>
-          <h1 class="logo-text">  管理系统</h1>
+  <div :class="['plnm-shell', { 'rail-collapsed': isCollapse }]">
+    <aside class="plnm-rail" :class="{ 'is-collapsed': isCollapse }">
+      <div class="brand-block" @click="router.push('/home')">
+        <div class="brand-mark">
+          <el-icon><Document /></el-icon>
         </div>
-        
-        <!-- 全局搜索 -->
-        <div class="global-search">
+        <div class="brand-copy" v-if="!isCollapse">
+          <strong>PLNM</strong>
+          <span>Personal Life Notes Manager</span>
+        </div>
+      </div>
+
+      <button
+        class="rail-toggle"
+        type="button"
+        :title="isCollapse ? '展开导航' : '收起导航'"
+        @click="handleCollapse"
+      >
+        <el-icon><component :is="isCollapse ? Expand : Fold" /></el-icon>
+        <span v-if="!isCollapse">收起导航</span>
+      </button>
+
+      <nav class="rail-nav" aria-label="主导航">
+        <section v-for="group in navGroups" :key="group.title" class="nav-section">
+          <div v-if="!isCollapse" class="nav-section-title">{{ group.title }}</div>
+          <button
+            v-for="item in group.items"
+            :key="item.path"
+            type="button"
+            :class="['nav-button', { active: isRouteActive(item.path) }]"
+            :title="isCollapse ? item.label : ''"
+            @click="router.push(item.path)"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span v-if="!isCollapse" class="label">{{ item.label }}</span>
+            <span v-if="!isCollapse && item.badge" class="count">{{ item.badge }}</span>
+          </button>
+        </section>
+      </nav>
+
+      <div class="rail-card" v-if="!isCollapse">
+        <div class="rail-card-title">今日建议</div>
+        <p>先处理预算阈值、学习进度和本周复盘，再进入 AI 对话生成总结。</p>
+        <button type="button" @click="openAiQuickDialog">AI 快捷执行</button>
+      </div>
+    </aside>
+
+    <section class="plnm-main">
+      <header :class="['workspace-topbar', { 'is-scrolled': contentScrolled }]">
+        <div class="command-search">
+          <el-icon><Search /></el-icon>
           <el-input
             v-model="globalSearchKeyword"
-            placeholder="搜索笔记、标签..."
-            prefix-icon="Search"
+            placeholder="搜索笔记、课程、账单、AI 对话"
             clearable
             @keyup.enter="handleGlobalSearch"
-            class="search-input"
           />
+          <span class="search-hint">Enter</span>
         </div>
-      </div>
-      
-      <div class="header-right">
-        <!-- 快捷操作 -->
-        <div class="quick-actions">
+
+        <div class="topbar-actions">
           <el-tooltip content="新建笔记" placement="bottom">
-            <el-button circle @click="createNote" class="action-btn">
+            <button class="icon-action" type="button" @click="createNote">
               <el-icon><Plus /></el-icon>
-            </el-button>
+            </button>
           </el-tooltip>
-
-          <el-tooltip content="AI快捷操作" placement="bottom">
-            <el-button circle @click="openAiQuickDialog" class="action-btn ai-action-btn">
+          <el-tooltip content="AI 快捷操作" placement="bottom">
+            <button class="icon-action is-primary" type="button" @click="openAiQuickDialog">
               <el-icon><MagicStick /></el-icon>
-            </el-button>
+            </button>
           </el-tooltip>
-          
-          <el-tooltip content="通知" placement="bottom">
-            <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge">
-              <el-button circle class="action-btn" @click="goNotificationSettings">
-                <el-icon><Bell /></el-icon>
-              </el-button>
-            </el-badge>
-          </el-tooltip>
-        </div>
-        
-        <!-- 用户信息 -->
-        <el-dropdown @command="handleUserCommand" class="user-dropdown">
-          <div class="user-info">
-            <img class="avatar" :src="user?.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" alt="avatar">
-            <span class="username">{{ user?.name || user?.username }}</span>
-            <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
-          </div>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="profile">
-                <el-icon><User /></el-icon>
-                个人资料
-              </el-dropdown-item>
-              <el-dropdown-item command="settings">
-                <el-icon><Setting /></el-icon>
-                系统设置
-              </el-dropdown-item>
-              <el-dropdown-item divided command="logout">
-                <el-icon><SwitchButton /></el-icon>
-                退出登录
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-    </header>
-
-    <!-- 主体内容区 -->
-    <div class="main-container">
-      <!-- 侧边栏 -->
-      <aside class="sidebar" :class="{ 'sidebar-collapsed': isCollapse }">
-        <!-- 侧边栏头部 -->
-        <div class="sidebar-header">
-          <el-button 
-            link 
-            @click="handleCollapse" 
-            class="collapse-btn"
-            :icon="isCollapse ? Expand : Fold"
+          <el-popover
+            placement="bottom-end"
+            trigger="click"
+            :width="380"
+            popper-class="plnm-notification-popover"
+            @show="refreshNotifications"
           >
-            <span v-if="!isCollapse">收起</span>
-          </el-button>
+            <template #reference>
+              <el-badge
+                :value="unreadCount"
+                :hidden="unreadCount === 0"
+                :max="99"
+                class="notification-badge"
+              >
+                <button
+                  :class="['icon-action', 'notification-action', { 'has-unread': unreadCount > 0 }]"
+                  type="button"
+                  title="通知中心"
+                >
+                  <el-icon><Bell /></el-icon>
+                </button>
+              </el-badge>
+            </template>
+
+            <div class="notification-panel">
+              <div class="notification-panel-head">
+                <div>
+                  <strong>通知中心</strong>
+                  <span>{{ unreadCount > 0 ? `${unreadCount} 条未读` : '暂无未读消息' }}</span>
+                </div>
+                <div class="notification-head-actions">
+                  <button type="button" title="刷新通知" @click="refreshNotifications">
+                    <el-icon><RefreshRight /></el-icon>
+                  </button>
+                  <button type="button" @click="goNotificationSettings">设置</button>
+                </div>
+              </div>
+
+              <div class="notification-summary-strip">
+                <span>实时提醒</span>
+                <strong>{{ notificationPreview.length }}</strong>
+                <small>最近动态</small>
+              </div>
+
+              <div v-if="notificationPreview.length" class="notification-feed-mini">
+                <button
+                  v-for="item in notificationPreview"
+                  :key="item.id"
+                  :class="['notification-mini-item', { unread: item.status === 'unread' }]"
+                  type="button"
+                  @click="openNotification(item)"
+                >
+                  <span :class="['notification-type-dot', `is-${item.type || 'system'}`]"></span>
+                  <span class="notification-mini-main">
+                    <strong>{{ item.title }}</strong>
+                    <em>{{ item.content }}</em>
+                  </span>
+                  <time>{{ formatNotificationTime(item.createTime) }}</time>
+                </button>
+              </div>
+
+              <div v-else class="notification-empty-mini">
+                <el-icon><Bell /></el-icon>
+                <span>暂无通知</span>
+              </div>
+
+              <div class="notification-panel-foot">
+                <button type="button" :disabled="unreadCount === 0" @click="markAllPreviewRead">全部已读</button>
+                <button type="button" @click="goNotificationSettings">查看设置</button>
+              </div>
+            </div>
+          </el-popover>
+
+          <el-dropdown
+            trigger="click"
+            popper-class="plnm-user-menu-popper"
+            @command="handleUserCommand"
+            class="user-dropdown"
+          >
+            <div class="profile-chip">
+              <img class="avatar" :src="user?.avatar || defaultAvatar" alt="用户头像">
+              <div class="profile-copy">
+                <strong>{{ user?.name || user?.username || 'newuser' }}</strong>
+                <span>{{ user?.role || 'USER' }}</span>
+              </div>
+              <el-icon><ArrowDown /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile">
+                  <el-icon><User /></el-icon>
+                  个人资料
+                </el-dropdown-item>
+                <el-dropdown-item command="settings">
+                  <el-icon><Setting /></el-icon>
+                  系统设置
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout">
+                  <el-icon><SwitchButton /></el-icon>
+                  退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
-        
-        <!-- 导航菜单 -->
-        <el-menu
-          router
-          class="sidebar-menu"
-          :default-active="router.currentRoute.value.path"
-          :collapse="isCollapse"
-          :collapse-transition="false"
-        >
-          <!-- 工作台 -->
-          <!-- <div class="menu-group" v-if="!isCollapse">
-            <div class="menu-group-title">工作台</div>
-          </div> -->
-          
-          <el-menu-item index="/home" class="menu-item">
-            <el-icon><HomeFilled /></el-icon>
-            <span>概览</span>
-          </el-menu-item>
-                    <el-menu-item index="/ai/chat" class="menu-item">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>AI对话</span>
-          </el-menu-item>
-          <el-menu-item index="/ai/audit" class="menu-item">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>AI审计日志</span>
-          </el-menu-item>
-          <!-- 笔记管理 -->
-          <!-- <div class="menu-group" v-if="!isCollapse">
-            <div class="menu-group-title">笔记管理</div>
-          </div> -->
-          
-          <el-sub-menu index="notes">
-            <template #title>
-              <el-icon><Document /></el-icon>
-              <span>笔记中心</span>
-            </template>
-            <el-menu-item index="/notes/list">
-              <el-icon><Document /></el-icon>
-              <span>我的笔记</span>
-            </el-menu-item>
-            <el-menu-item index="/notes/editor">
-              <el-icon><EditPen /></el-icon>
-              <span>写笔记</span>
-            </el-menu-item>
-            <el-menu-item index="/notes/tags">
-              <el-icon><PriceTag /></el-icon>
-              <span>标签管理</span>
-            </el-menu-item>
-          </el-sub-menu>
-          
-          <!-- 个人中心 -->
-          <!-- <div class="menu-group" v-if="!isCollapse">
-            <div class="menu-group-title">个人中心</div>
-          </div> -->
-          
+      </header>
 
-          <!-- 生活模块 -->
-          <!-- <div class="menu-group" v-if="!isCollapse">
-            <div class="menu-group-title">生活</div>
-          </div> -->
-          <el-sub-menu index="life">
-            <template #title>
-              <el-icon><Document /></el-icon>
-              <span>生活中心</span>
-            </template>
-            <el-menu-item index="/life/expenses" class="menu-item">
-              <el-icon><Document /></el-icon>
-              <span>消费记录</span>
-            </el-menu-item>
-            <el-menu-item index="/life/budgets" class="menu-item">
-              <el-icon><PriceTag /></el-icon>
-              <span>预算设置</span>
-            </el-menu-item>
-            <el-menu-item index="/life/categories" class="menu-item">
-              <el-icon><PriceTag /></el-icon>
-              <span>分类管理</span>
-            </el-menu-item>
-          </el-sub-menu>
-          
-          <el-sub-menu index="learning">
-            <template #title>
-              <el-icon><Collection /></el-icon>
-              <span>学习中心</span>
-            </template>
-            <el-menu-item index="/learning/courses">
-              <el-icon><Collection /></el-icon>
-              <span>课程分类</span>
-            </el-menu-item>
-            <el-menu-item index="/learning/progress">
-              <el-icon><TrendCharts /></el-icon>
-              <span>学习进度</span>
-            </el-menu-item>
-            <el-menu-item index="/learning/resources">
-              <el-icon><Reading /></el-icon>
-              <span>学习资源库</span>
-            </el-menu-item>
-          </el-sub-menu>
-
-
-
-
-
-                  <el-sub-menu index="person">
-            <template #title>
-              <el-icon><User /></el-icon>
-              <span>个人中心</span>
-            </template>
-            <el-menu-item index="/person/info" class="menu-item">
-              <el-icon><User /></el-icon>
-              <span>个人资料</span>
-            </el-menu-item>
-            <el-menu-item index="/person/password" class="menu-item">
-              <el-icon><Lock /></el-icon>
-              <span>修改密码</span>
-            </el-menu-item>
-          </el-sub-menu>
-
-
-
-        </el-menu>
-      </aside>
-
-      <!-- 内容区 -->
-      <main class="content" ref="contentRef" @scroll="handleContentScroll">
-        <div class="content-wrapper">
+      <main ref="contentRef" class="workspace-content" @scroll="handleContentScroll">
+        <div :class="contentWrapperClass">
           <router-view @updateUser="updateUser" />
         </div>
-        <el-button
+        <button
           v-show="showBackTop"
           class="back-to-top"
-          type="primary"
-          circle
-          @click="scrollToTop"
-          :icon="ArrowUp"
+          type="button"
           title="回到顶部"
-        />
+          @click="scrollToTop"
+        >
+          <el-icon><ArrowUp /></el-icon>
+        </button>
       </main>
-    </div>
+    </section>
 
     <el-dialog v-model="aiDialogVisible" title="AI 对话式快捷操作" width="560px" class="ai-quick-dialog">
       <div class="ai-guide">
-        <div>示例：记一笔餐饮消费 35 元；把 Vue 课程进度加 10%；新建一篇复盘笔记</div>
+        示例：记一笔餐饮消费 35 元；把 Vue 课程进度加 10%；新建一篇复盘笔记
       </div>
       <el-input
         v-model="aiMessage"
@@ -259,110 +224,139 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-import { 
-  Fold, 
-  Expand, 
-  Document, 
-  Search, 
-  Plus, 
+import {
+  ArrowDown,
+  ArrowUp,
   Bell,
-  User,
+  ChatDotRound,
+  Collection,
+  DataAnalysis,
+  Document,
+  EditPen,
+  Expand,
+  Fold,
+  HomeFilled,
+  MagicStick,
+  Plus,
+  PriceTag,
+  Reading,
+  RefreshRight,
+  Search,
   Setting,
   SwitchButton,
-  ArrowDown,
-  HomeFilled,
-  EditPen,
-  PriceTag,
-  Collection,
   TrendCharts,
-  Reading,
-  Lock,
-  ArrowUp,
-  MagicStick,
-  ChatDotRound,
-  DataAnalysis,
+  User,
+  Wallet
 } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notification'
+import { useUserStore } from '@/stores/user'
 import { aiApi } from '@/api'
-// removed duplicate icons import to avoid collision
-// import { House, Tickets, Edit, User, Setting, Collection, TrendCharts, Reading } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
-
-// 用户信息：使用 storeToRefs 确保响应式正确解包
+const notificationStore = useNotificationStore()
 const { userInfo } = storeToRefs(userStore)
-const user = userInfo
-// 全局搜索
-const globalSearchKeyword = ref('')
+const { unreadCount, list: notificationList } = storeToRefs(notificationStore)
 
-// 处理全局搜索
-const handleGlobalSearch = () => {
-  if (globalSearchKeyword.value.trim()) {
-    router.push({
-      path: '/notes/list',
-      query: { keyword: globalSearchKeyword.value }
-    })
+const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+const user = userInfo
+const globalSearchKeyword = ref('')
+const isCollapse = ref(false)
+const contentRef = ref(null)
+const contentScrolled = ref(false)
+const showBackTop = ref(false)
+const aiDialogVisible = ref(false)
+const aiMessage = ref('')
+const aiLoading = ref(false)
+const aiResult = ref(null)
+
+const notificationPreview = computed(() => (notificationList.value || []).slice(0, 5))
+
+const navGroups = [
+  {
+    title: '工作台',
+    items: [
+      { label: '首页', path: '/home', icon: HomeFilled },
+      { label: 'AI 对话', path: '/ai/chat', icon: ChatDotRound },
+      { label: 'AI 审计', path: '/ai/audit', icon: DataAnalysis }
+    ]
+  },
+  {
+    title: '内容',
+    items: [
+      { label: '我的笔记', path: '/notes/list', icon: Document },
+      { label: '写笔记', path: '/notes/editor', icon: EditPen },
+      { label: '标签管理', path: '/notes/tags', icon: PriceTag }
+    ]
+  },
+  {
+    title: '生活与学习',
+    items: [
+      { label: '消费记录', path: '/life/expenses', icon: Wallet },
+      { label: '预算设置', path: '/life/budgets', icon: PriceTag },
+      { label: '课程分类', path: '/learning/courses', icon: Collection },
+      { label: '学习进度', path: '/learning/progress', icon: TrendCharts },
+      { label: '资源库', path: '/learning/resources', icon: Reading }
+    ]
+  },
+  {
+    title: '账户',
+    items: [
+      { label: '个人资料', path: '/person/info', icon: User },
+      { label: '系统设置', path: '/settings', icon: Setting }
+    ]
   }
+]
+
+const contentWrapperClass = computed(() => [
+  'content-canvas',
+  {
+    'is-ai-page': route.path.startsWith('/ai/chat')
+  }
+])
+
+const isRouteActive = (path) => {
+  if (path === '/home') return route.path === '/home'
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 
-// 创建笔记
+const handleGlobalSearch = () => {
+  const keyword = globalSearchKeyword.value.trim()
+  if (!keyword) return
+  router.push({ path: '/notes/list', query: { keyword } })
+}
+
 const createNote = () => {
   router.push('/notes/editor')
 }
 
-// 处理用户下拉菜单命令
 const handleUserCommand = (command) => {
-  switch (command) {
-    case 'profile':
-      router.push('/person/info')
-      break
-    case 'settings':
-      router.push('/settings')
-      break
-    case 'logout':
-      logout()
-      break
-  }
+  if (command === 'profile') router.push('/person/info')
+  if (command === 'settings') router.push('/settings')
+  if (command === 'logout') logout()
 }
 
-// 退出登录
 const logout = async () => {
-    try {
-      await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      })
-      
-      await userStore.logout()
-      // 移除重复的路由跳转和成功提示，userStore.logout()中已经处理
-    } catch (error) {
-      if (error !== 'cancel') {
-        console.error('退出登录失败:', error)
-      }
-    }
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await userStore.logout()
+  } catch (error) {
+    if (error !== 'cancel') console.error('退出登录失败:', error)
   }
-
-// 侧边栏折叠
-const isCollapse = ref(false)
+}
 
 const handleCollapse = () => {
   isCollapse.value = !isCollapse.value
 }
-
-// 检查登录状态
-onMounted(() => {
-  if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
-    router.push('/login')
-  }
-})
 
 const updateUser = async () => {
   try {
@@ -372,23 +366,61 @@ const updateUser = async () => {
   }
 }
 
-const notificationStore = useNotificationStore()
-const { unreadCount } = storeToRefs(notificationStore)
-
-onMounted(async () => {
-  try { await notificationStore.fetchList('unread', 1, 10) } catch (e) {}
-})
-
 const goNotificationSettings = () => {
   router.push({ path: '/settings', query: { tab: 'notification' } })
 }
 
-const contentRef = ref(null)
-const contentScrolled = ref(false)
-const showBackTop = ref(false)
+const refreshNotifications = async () => {
+  try {
+    await notificationStore.fetchOverview()
+  } catch (e) {
+    await notificationStore.fetchList('unread', 1, 6)
+  }
+}
+
+const normalizeNotificationLink = (link) => {
+  if (!link) return ''
+  if (link === '/notes') return '/notes/list'
+  return link
+}
+
+const openNotification = async (item) => {
+  if (!item) return
+  if (item.status === 'unread') {
+    await notificationStore.markRead([item.id])
+  }
+  const target = normalizeNotificationLink(item.linkUrl)
+  if (target) {
+    router.push(target)
+  }
+}
+
+const markAllPreviewRead = async () => {
+  const ids = (notificationList.value || [])
+    .filter(item => item.status === 'unread')
+    .map(item => item.id)
+  if (!ids.length) return
+  const ok = await notificationStore.markRead(ids)
+  if (ok) {
+    ElMessage.success('未读通知已处理')
+    refreshNotifications()
+  }
+}
+
+const formatNotificationTime = (value) => {
+  if (!value) return '刚刚'
+  const diff = Date.now() - Number(value)
+  const minutes = Math.max(1, Math.floor(diff / 60000))
+  if (minutes < 60) return `${minutes}分钟前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}小时前`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}天前`
+  return new Date(Number(value)).toLocaleDateString()
+}
 
 const handleContentScroll = () => {
-  const el = contentRef?.value
+  const el = contentRef.value
   if (!el) return
   const top = el.scrollTop || 0
   contentScrolled.value = top > 0
@@ -396,15 +428,8 @@ const handleContentScroll = () => {
 }
 
 const scrollToTop = () => {
-  const el = contentRef?.value
-  if (!el) return
-  el.scrollTo({ top: 0, behavior: 'smooth' })
+  contentRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
 }
-
-const aiDialogVisible = ref(false)
-const aiMessage = ref('')
-const aiLoading = ref(false)
-const aiResult = ref(null)
 
 const openAiQuickDialog = () => {
   aiDialogVisible.value = true
@@ -435,435 +460,407 @@ const submitAiQuickAction = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  try {
+    await refreshNotifications()
+  } catch (e) {}
   handleContentScroll()
 })
 </script>
 
 <style scoped>
-.manager-container {
-  height: 100vh;
-  overflow: hidden;
-  background-color: #f8fafc;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+.plnm-shell {
+  --shell-bg: #edf4fb;
+  --surface: #ffffff;
+  --surface-soft: #f7fafc;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #d8e2ed;
+  --primary: #0f172a;
+  --accent: #2563eb;
+  --success: #059669;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  overflow: visible;
+  background: var(--shell-bg);
+  color: var(--ink);
+  transition: grid-template-columns 220ms ease;
 }
 
-/* 顶部导航栏 */
-.header {
-  height: 64px;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid #e8eaed;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+.plnm-shell.rail-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.plnm-rail {
   position: sticky;
   top: 0;
-  z-index: 1000;
+  height: 100vh;
+  background: #09111f;
+  color: #dbeafe;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 32px;
+.plnm-rail.is-collapsed {
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
-.logo-container {
-  display: flex;
+.plnm-shell.rail-collapsed .brand-block,
+.plnm-shell.rail-collapsed .nav-button {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.brand-block {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-}
-
-.logo-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.logo-text {
-  color: #1f2937;
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
-  letter-spacing: -0.025em;
-}
-
-.global-search {
-  width: 320px;
-}
-
-.search-input {
-  border-radius: 8px;
-}
-
-.search-input :deep(.el-input__wrapper) {
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: none;
-  transition: all 0.2s;
-}
-
-.search-input :deep(.el-input__wrapper:hover) {
-  border-color: #cbd5e1;
-}
-
-.search-input :deep(.el-input__wrapper.is-focus) {
-  border-color: #1890ff;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.quick-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.action-btn {
-  width: 40px;
-  height: 40px;
-  border: 1px solid #e2e8f0;
-  background-color: #ffffff;
-  color: #64748b;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-  background-color: #f0f9ff;
-}
-
-.ai-action-btn {
-  border-color: #d9d2ff;
-  color: #6751d6;
-  background: #f7f4ff;
-}
-
-.ai-action-btn:hover {
-  border-color: #7f6bf2;
-  color: #5b44d6;
-  background: #efe9ff;
-}
-
-.notification-badge :deep(.el-badge__content) {
-  background-color: #ef4444;
-  border: 2px solid #ffffff;
-}
-
-.user-dropdown {
   cursor: pointer;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  transition: all 0.2s;
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #12b981);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.28);
 }
 
-.user-info:hover {
-  background-color: #f8fafc;
+.brand-copy {
+  min-width: 0;
 }
 
-.avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-  object-fit: cover;
+.brand-copy strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: 0.08em;
 }
 
-.username {
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.dropdown-icon {
-  color: #9ca3af;
-  font-size: 12px;
-  transition: transform 0.2s;
-}
-
-.user-dropdown.is-active .dropdown-icon {
-  transform: rotate(180deg);
-}
-
-/* 主体内容区 */
-.main-container {
-  display: flex;
-  height: calc(100vh - 64px);
+.brand-copy span {
+  display: block;
+  margin-top: 2px;
+  color: #8fa3bc;
+  font-size: 11px;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 侧边栏 */
-.sidebar {
-  width: 240px;
-  background-color: #ffffff;
-  border-right: 1px solid #e8eaed;
-  transition: width 0.3s ease;
-  overflow-y: auto;
-  height: 100%;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+.rail-toggle,
+.nav-button,
+.rail-card button,
+.icon-action,
+.back-to-top {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
-.sidebar-collapsed {
-  width: 64px;
-}
-
-.sidebar-header {
-  height: 56px;
-  display: flex;
+.rail-toggle {
+  height: 38px;
+  border-radius: 10px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid #f1f3f4;
-  padding: 0 16px;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  transition: background 180ms ease, color 180ms ease, width 220ms ease;
 }
 
-.collapse-btn {
-  color: #5f6368;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
+.rail-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
-.collapse-btn:hover {
-  background-color: #f8f9fa;
-  color: #1a73e8;
+.plnm-shell.rail-collapsed .rail-toggle {
+  width: 100%;
 }
 
-.sidebar-menu {
-  border: none;
-  padding: 8px;
-  background-color: transparent;
+.rail-nav {
+  display: grid;
+  gap: 16px;
 }
 
-.menu-group {
-  padding: 16px 16px 8px;
+.nav-section {
+  display: grid;
+  gap: 6px;
 }
 
-.menu-group-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+.nav-section-title {
+  padding: 0 10px 4px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #7690ad;
 }
 
-.menu-item {
-  margin: 2px 0;
-  border-radius: 8px;
-  transition: all 0.2s;
-  font-size: 14px;
-  height: 40px;
-  line-height: 40px;
+.nav-button {
+  min-height: 42px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: transparent;
+  color: #9fb1c7;
+  text-align: left;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
-.menu-item :deep(.el-menu-item__title) {
-  font-weight: 500;
+.is-collapsed .nav-button {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 0;
 }
 
-.menu-item:hover {
-  background-color: #f8f9fa !important;
-  color: #1a73e8 !important;
+.nav-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
-.el-menu-item.is-active {
-  background-color: #e8f0fe !important;
-  color: #1a73e8 !important;
-  font-weight: 600;
-  position: relative;
+.nav-button.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
-.el-menu-item.is-active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 20px;
-  background-color: #1a73e8;
-  border-radius: 0 2px 2px 0;
-}
-
-/* 内容区 */
-.content {
-  flex: 1;
-  background-color: #f8fafc;
-  overflow-y: auto;
-  height: 100%;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.content-wrapper {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-/* 下拉菜单样式 */
-:deep(.el-dropdown-menu) {
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 8px;
-}
-
-:deep(.el-dropdown-menu__item) {
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #374151;
-  transition: all 0.2s;
-}
-
-:deep(.el-dropdown-menu__item:hover) {
-  background-color: #f8f9fa;
-  color: #1a73e8;
-}
-
-:deep(.el-dropdown-menu__item.is-divided) {
-  border-top: 1px solid #f1f3f4;
-  margin-top: 4px;
-  padding-top: 12px;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .header {
-    padding: 0 16px;
-  }
-  
-  .header-left {
-    gap: 16px;
-  }
-  
-  .global-search {
-    width: 200px;
-  }
-  
-  .logo-text {
-    display: none;
-  }
-  
-  .sidebar {
-    width: 64px;
-  }
-  
-  .content-wrapper {
-    padding: 16px;
-  }
-}
-
-/* 滚动条样式 */
-:deep(.el-scrollbar__bar) {
-  opacity: 0.3;
-}
-
-:deep(.el-scrollbar__thumb) {
-  background-color: #cbd5e1;
-  border-radius: 4px;
-}
-
-:deep(.el-scrollbar__thumb:hover) {
-  background-color: #94a3b8;
-}
-
-/* 表格样式优化 */
-:deep(th) {
-  color: #374151;
-  font-weight: 600;
-  background-color: #f8fafc;
-}
-
-:deep(.el-table) {
-  border-radius: 8px;
+.nav-button .label {
+  min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-:deep(.el-table__header) {
-  background-color: #f8fafc;
+.nav-button .count {
+  min-width: 26px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  text-align: center;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
 }
 
-/* 按钮样式优化 */
-:deep(.el-button--primary) {
-  background-color: #1890ff;
-  border-color: #1890ff;
+.rail-card {
+  margin-top: auto;
+  border-radius: 16px;
+  padding: 14px;
+  color: #dbeafe;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.22), rgba(5, 150, 105, 0.16));
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-:deep(.el-button--primary:hover) {
-  background-color: #40a9ff;
-  border-color: #40a9ff;
+.rail-card-title {
+  font-weight: 700;
 }
-/* 统一两侧滚动条视觉样式 */
-.sidebar::-webkit-scrollbar,
-.content::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.sidebar::-webkit-scrollbar-thumb,
-.content::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 4px;
-}
-.sidebar::-webkit-scrollbar-thumb:hover,
-.content::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
-}
-/* Firefox */
-.sidebar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-.content { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
 
-/* 滚动时 Header 阴影与轻微变色 */
-.header.is-scrolled {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-bottom-color: #e2e8f0;
+.rail-card p {
+  margin: 8px 0 12px;
+  color: #b7c7d9;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.rail-card button {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.plnm-main {
+  min-width: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 76px minmax(0, 1fr);
+}
+
+.workspace-topbar {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(320px, 620px) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(216, 226, 237, 0.8);
+  background: rgba(237, 244, 251, 0.92);
+  backdrop-filter: blur(18px);
+  z-index: 10;
+}
+
+.workspace-topbar.is-scrolled {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.command-search {
+  min-width: 0;
+  height: 48px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 12px;
   background: #ffffff;
 }
 
-/* 悬浮回到顶部按钮样式 */
-.back-to-top {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 1200;
-  box-shadow: 0 6px 16px rgba(24, 144, 255, 0.3);
+.command-search :deep(.el-input__wrapper) {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
-.back-to-top:hover {
-  box-shadow: 0 8px 20px rgba(24, 144, 255, 0.4);
+.command-search :deep(.el-input__inner) {
+  height: 42px;
+  font-size: 15px;
+}
+
+.search-hint {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 3px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.icon-action {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.icon-action:hover,
+.icon-action.is-primary {
+  color: #ffffff;
+  background: #0f172a;
+  border-color: #0f172a;
+}
+
+.profile-chip {
+  height: 48px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 128px) 18px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.profile-chip:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #0ea5e9, #059669);
+  border: 2px solid #e2e8f0;
+}
+
+.profile-copy {
+  min-width: 0;
+}
+
+.profile-copy strong,
+.profile-copy span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.profile-copy strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.profile-copy span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-content {
+  min-height: 0;
+  overflow: visible;
+  padding: 24px;
+}
+
+.content-canvas {
+  width: min(1480px, 100%);
+  margin: 0 auto;
+}
+
+.content-canvas.is-ai-page {
+  width: 100%;
+  height: 100%;
+}
+
+.back-to-top {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: #ffffff;
+  background: #0f172a;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.2);
 }
 
 .ai-guide {
   margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #ece9ff;
-  background: #f8f6ff;
-  color: #5c5192;
-  font-size: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #cfe6ff;
+  background: #f1f8ff;
+  color: #31557c;
+  font-size: 13px;
 }
 
 .ai-dialog-actions {
@@ -875,27 +872,534 @@ onMounted(() => {
 
 .ai-result {
   margin-top: 14px;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #dcecff;
-  background: #f7fbff;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #cfe6ff;
+  background: #f8fbff;
 }
 
 .ai-result-title {
-  color: #2d4d93;
+  color: #0f3d68;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 6px;
 }
 
 .ai-result-text {
   color: #334155;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .ai-result-meta {
   margin-top: 6px;
   color: #64748b;
   font-size: 12px;
+}
+
+:global(.plnm-user-menu-popper) {
+  border: 1px solid rgba(148, 163, 184, 0.32) !important;
+  border-radius: 16px !important;
+  padding: 6px !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16) !important;
+  backdrop-filter: blur(14px);
+}
+
+:global(.plnm-user-menu-popper .el-popper__arrow::before) {
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu) {
+  min-width: 168px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu__item) {
+  height: 40px;
+  gap: 10px;
+  border-radius: 11px;
+  padding: 0 12px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 40px;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu__item .el-icon) {
+  margin-right: 0;
+  color: #64748b;
+  font-size: 16px;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu__item:not(.is-disabled):focus),
+:global(.plnm-user-menu-popper .el-dropdown-menu__item:not(.is-disabled):hover) {
+  background: #eef6ff;
+  color: #0f172a;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu__item:not(.is-disabled):focus .el-icon),
+:global(.plnm-user-menu-popper .el-dropdown-menu__item:not(.is-disabled):hover .el-icon) {
+  color: #2563eb;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu__item--divided) {
+  margin: 6px 0 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 1100px) {
+  .plnm-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .plnm-rail:not(.is-collapsed) {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .brand-copy,
+  .rail-toggle span,
+  .nav-section-title,
+  .nav-button .label,
+  .nav-button .count,
+  .rail-card {
+    display: none;
+  }
+
+  .brand-block,
+  .nav-button {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .workspace-topbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* image-reference workbench redesign */
+.plnm-shell {
+  --shell-bg: #edf3f8;
+  --surface: #ffffff;
+  --surface-soft: #f7fafc;
+  --ink: #172033;
+  --muted: #66758b;
+  --line: #d7e1ec;
+  --primary: #1f6feb;
+  --accent: #1f6feb;
+  --success: #16a34a;
+  grid-template-columns: 236px minmax(0, 1fr);
+  background: var(--shell-bg);
+}
+
+.plnm-shell.rail-collapsed {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+
+.plnm-rail {
+  margin: 16px 0 16px 16px;
+  height: calc(100vh - 32px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 14px 12px;
+  box-shadow: 0 12px 30px rgba(33, 54, 86, 0.06);
+}
+
+.brand-block {
+  min-height: 44px;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1f6feb, #27b883);
+  box-shadow: none;
+}
+
+.brand-copy strong {
+  color: var(--ink);
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.brand-copy span,
+.nav-section-title {
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.rail-toggle {
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f5f8fb;
+  color: #516174;
+}
+
+.rail-toggle:hover {
+  background: #ebf3ff;
+  color: var(--primary);
+}
+
+.rail-nav {
+  gap: 12px;
+}
+
+.nav-section {
+  gap: 4px;
+}
+
+.nav-section-title {
+  padding: 0 8px 4px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.nav-button {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #526276;
+  font-weight: 700;
+}
+
+.nav-button:hover {
+  background: #f2f7fd;
+  color: var(--ink);
+}
+
+.nav-button.active {
+  border-color: #c8dcff;
+  background: #e9f2ff;
+  color: #1557c0;
+  box-shadow: none;
+}
+
+.nav-button .count {
+  background: #dbeafe;
+  color: #1557c0;
+}
+
+.rail-card {
+  border: 1px solid #cfe0f2;
+  border-radius: 8px;
+  color: var(--ink);
+  background: #f3f8ff;
+}
+
+.rail-card p {
+  color: var(--muted);
+}
+
+.rail-card button {
+  border: 1px solid #1f6feb;
+  border-radius: 8px;
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.plnm-main {
+  grid-template-rows: 80px minmax(0, 1fr);
+}
+
+.workspace-topbar {
+  margin: 16px 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(33, 54, 86, 0.05);
+}
+
+.workspace-topbar.is-scrolled {
+  box-shadow: 0 16px 36px rgba(33, 54, 86, 0.08);
+}
+
+.command-search {
+  height: 46px;
+  border-radius: 8px;
+  background: #f9fbfd;
+}
+
+.search-hint {
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.icon-action {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: #f9fbfd;
+}
+
+.icon-action:hover,
+.icon-action.is-primary {
+  color: #ffffff;
+  background: #1f6feb;
+  border-color: #1f6feb;
+}
+
+.profile-chip {
+  height: 46px;
+  grid-template-columns: 34px minmax(0, 112px) 16px;
+  border-radius: 8px;
+  background: #f9fbfd;
+  box-shadow: none;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.workspace-content {
+  padding: 16px;
+}
+
+.content-canvas {
+  width: min(1440px, 100%);
+}
+
+.back-to-top {
+  border-radius: 8px;
+  background: #1f6feb;
+}
+
+:global(.plnm-user-menu-popper) {
+  border-radius: 8px !important;
+}
+
+:global(.plnm-user-menu-popper .el-dropdown-menu__item) {
+  border-radius: 6px;
+}
+
+.notification-badge :deep(.el-badge__content) {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #ef4444;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.28);
+}
+
+.notification-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-action.has-unread::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 11px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.14);
+}
+
+:global(.plnm-notification-popover) {
+  padding: 0 !important;
+  border: 1px solid #d7e1ec !important;
+  border-radius: 8px !important;
+  box-shadow: 0 24px 50px rgba(23, 32, 51, 0.16) !important;
+}
+
+.notification-panel {
+  padding: 14px;
+  color: #172033;
+}
+
+.notification-panel-head,
+.notification-panel-foot,
+.notification-mini-item,
+.notification-summary-strip {
+  display: flex;
+  align-items: center;
+}
+
+.notification-panel-head {
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5edf5;
+}
+
+.notification-panel-head strong {
+  display: block;
+  font-size: 17px;
+  color: #101827;
+}
+
+.notification-panel-head span {
+  display: block;
+  margin-top: 2px;
+  color: #66758b;
+  font-size: 12px;
+}
+
+.notification-head-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.notification-head-actions button,
+.notification-panel-foot button {
+  height: 32px;
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  background: #f8fbfe;
+  color: #40516a;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.notification-head-actions button {
+  min-width: 32px;
+  padding: 0 10px;
+}
+
+.notification-summary-strip {
+  justify-content: space-between;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #cfe0f2;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(31, 111, 235, 0.12), rgba(39, 184, 131, 0.12)),
+    #f7fbff;
+}
+
+.notification-summary-strip span,
+.notification-summary-strip small {
+  color: #526276;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.notification-summary-strip strong {
+  color: #1557c0;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.notification-feed-mini {
+  display: grid;
+  gap: 8px;
+  max-height: 324px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.notification-mini-item {
+  width: 100%;
+  gap: 10px;
+  min-height: 70px;
+  padding: 10px;
+  border: 1px solid #e0e8f1;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notification-mini-item:hover {
+  border-color: #9fc5ff;
+  background: #f7fbff;
+}
+
+.notification-mini-item.unread {
+  border-color: #b9d6ff;
+  background: #edf5ff;
+}
+
+.notification-type-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 50%;
+  background: #1f6feb;
+  box-shadow: 0 0 0 5px rgba(31, 111, 235, 0.12);
+}
+
+.notification-type-dot.is-security {
+  background: #ef4444;
+  box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.12);
+}
+
+.notification-type-dot.is-collaboration {
+  background: #16a34a;
+  box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.12);
+}
+
+.notification-mini-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.notification-mini-main strong,
+.notification-mini-main em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-mini-main strong {
+  color: #172033;
+  font-size: 14px;
+}
+
+.notification-mini-main em {
+  margin-top: 4px;
+  color: #66758b;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.notification-mini-item time {
+  color: #8391a5;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.notification-empty-mini {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 140px;
+  color: #8391a5;
+  border: 1px dashed #d7e1ec;
+  border-radius: 8px;
+  background: #f8fbfe;
+}
+
+.notification-panel-foot {
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.notification-panel-foot button {
+  flex: 1;
+}
+
+.notification-panel-foot button:disabled {
+  color: #a8b3c2;
+  cursor: not-allowed;
+  background: #f4f7fa;
 }
 </style>

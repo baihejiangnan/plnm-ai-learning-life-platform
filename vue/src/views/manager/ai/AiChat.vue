@@ -1,13 +1,40 @@
 <template>
-  <div class="ai-chat-page">
-    <aside class="chat-sidebar">
+  <div
+    :class="[
+      'ai-chat-page',
+      {
+        'sessions-collapsed': isSessionPanelCollapsed,
+        'context-collapsed': isContextPanelCollapsed
+      }
+    ]"
+  >
+    <aside :class="['chat-sidebar', { collapsed: isSessionPanelCollapsed }]">
       <div class="sidebar-head">
-        <el-button type="primary" class="new-chat-btn" @click="startNewConversation">
-          <el-icon><Plus /></el-icon>
-          新对话
-        </el-button>
+        <template v-if="!isSessionPanelCollapsed">
+          <el-button type="primary" class="new-chat-btn" @click="startNewConversation">
+            <el-icon><Plus /></el-icon>
+            新对话
+          </el-button>
+          <el-tooltip content="收起对话列表" placement="right">
+            <button class="panel-icon-btn" type="button" @click="isSessionPanelCollapsed = true">
+              <el-icon><Fold /></el-icon>
+            </button>
+          </el-tooltip>
+        </template>
+        <template v-else>
+          <el-tooltip content="展开对话列表" placement="right">
+            <button class="panel-icon-btn is-large" type="button" @click="isSessionPanelCollapsed = false">
+              <el-icon><Expand /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-tooltip content="新对话" placement="right">
+            <button class="panel-icon-btn is-large is-primary" type="button" @click="startNewConversation">
+              <el-icon><Plus /></el-icon>
+            </button>
+          </el-tooltip>
+        </template>
       </div>
-      <div class="session-list">
+      <div v-if="!isSessionPanelCollapsed" class="session-list">
         <div
           v-for="session in activeRoleSessions"
           :key="session.id"
@@ -25,6 +52,10 @@
           </div>
         </div>
       </div>
+      <div v-else class="collapsed-panel-summary">
+        <span>{{ activeRoleSessions.length }}</span>
+        <small>对话</small>
+      </div>
     </aside>
 
     <section class="chat-main">
@@ -39,6 +70,18 @@
           </div>
         </div>
         <div class="topbar-actions">
+          <el-tooltip :content="isSessionPanelCollapsed ? '展开对话列表' : '收起对话列表'" placement="bottom">
+            <el-button text @click="isSessionPanelCollapsed = !isSessionPanelCollapsed">
+              <el-icon><component :is="isSessionPanelCollapsed ? Expand : Fold" /></el-icon>
+              历史
+            </el-button>
+          </el-tooltip>
+          <el-tooltip :content="isContextPanelCollapsed ? '展开上下文面板' : '收起上下文面板'" placement="bottom">
+            <el-button text @click="isContextPanelCollapsed = !isContextPanelCollapsed">
+              <el-icon><component :is="isContextPanelCollapsed ? Expand : Fold" /></el-icon>
+              上下文
+            </el-button>
+          </el-tooltip>
           <el-button text @click="settingsVisible = true">
             <el-icon><Setting /></el-icon>
             设置
@@ -55,23 +98,40 @@
             <el-icon><RefreshRight /></el-icon>
             新对话
           </el-button>
+          <el-button text @click="clearCurrentConversation">
+            <el-icon><Delete /></el-icon>
+            清空
+          </el-button>
         </div>
       </header>
 
-      <div class="role-tabs-wrap">
-        <el-scrollbar>
-          <div class="role-tabs">
-            <button
+      <div class="role-select-wrap">
+        <div class="role-select-card">
+          <span class="role-label">当前角色</span>
+          <el-select
+            class="role-select"
+            :model-value="activeRoleId"
+            :teleported="false"
+            @change="switchRole"
+          >
+            <el-option
               v-for="role in roles"
               :key="role.id"
-              :class="['role-tab', { active: role.id === activeRoleId }]"
-              @click="switchRole(role.id)"
+              :label="role.name"
+              :value="role.id"
             >
-              <span class="tab-name">{{ role.name }}</span>
-              <span class="tab-meta">{{ role.streaming ? '流式' : '非流式' }}</span>
-            </button>
-          </div>
-        </el-scrollbar>
+              <div class="role-option">
+                <span>{{ role.name }}</span>
+                <small>{{ role.streaming ? '流式' : '非流式' }} · {{ role.description }}</small>
+              </div>
+            </el-option>
+          </el-select>
+        </div>
+        <div class="conversation-tools">
+          <span>{{ activeMessages.length }} 条消息</span>
+          <span>{{ conversationWordCount }} 字</span>
+          <span>{{ activeRoleStreaming ? (useWebSocket ? 'WebSocket' : 'SSE') : '非流式' }}</span>
+        </div>
       </div>
 
       <div ref="messageScrollRef" class="messages-panel">
@@ -124,6 +184,14 @@
             <el-icon><Microphone v-if="!recognizing" /><Loading v-else /></el-icon>
             {{ recognizing ? '语音识别中' : '语音输入' }}
           </el-button>
+          <el-button text @click="scrollToBottom(true)">
+            <el-icon><RefreshRight /></el-icon>
+            到底部
+          </el-button>
+          <el-button v-if="sending" text class="danger-tool" @click="stopGeneration">
+            <el-icon><Delete /></el-icon>
+            停止生成
+          </el-button>
           <el-switch
             v-model="useWebSocket"
             inline-prompt
@@ -136,6 +204,12 @@
             inline-prompt
             active-text="跨角色引用"
             inactive-text="隔离上下文"
+          />
+          <el-switch
+            v-model="autoScroll"
+            inline-prompt
+            active-text="自动滚动"
+            inactive-text="手动滚动"
           />
           <span class="stream-badge">{{ activeRoleStreaming ? (useWebSocket ? '流式通道：WebSocket' : '流式通道：SSE') : '当前角色：非流式回答' }}</span>
         </div>
@@ -155,6 +229,62 @@
         </div>
       </footer>
     </section>
+
+    <aside :class="['context-panel', { collapsed: isContextPanelCollapsed }]">
+      <div v-if="isContextPanelCollapsed" class="context-collapsed-tools">
+        <el-tooltip content="展开上下文面板" placement="left">
+          <button class="panel-icon-btn is-large" type="button" @click="isContextPanelCollapsed = false">
+            <el-icon><Expand /></el-icon>
+          </button>
+        </el-tooltip>
+        <span>上下文</span>
+      </div>
+      <template v-else>
+      <div class="context-card">
+        <div class="context-card-head">
+          <span>上下文连接</span>
+          <div class="context-head-actions">
+            <strong>{{ allowCrossRoleReference ? '开启' : '隔离' }}</strong>
+            <button class="panel-icon-btn" type="button" @click="isContextPanelCollapsed = true">
+              <el-icon><Fold /></el-icon>
+            </button>
+          </div>
+        </div>
+        <div class="context-map">
+          <div class="context-row">
+            <span>笔记库</span>
+            <b>摘要 / 标签 / 复盘</b>
+          </div>
+          <div class="context-row">
+            <span>生活中心</span>
+            <b>账单 / 预算 / 分类</b>
+          </div>
+          <div class="context-row">
+            <span>学习中心</span>
+            <b>课程 / 进度 / 资源</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="context-card">
+        <div class="context-card-head">
+          <span>执行策略</span>
+          <strong>{{ activeRoleStreaming ? '流式' : '非流式' }}</strong>
+        </div>
+        <p>AI 回答会保留引用和审计记录。涉及跨模块数据时，先解释判断，再给出可执行结果。</p>
+      </div>
+
+      <div class="context-card prompt-card">
+        <div class="context-card-head">
+          <span>快捷提示</span>
+          <strong>3 条</strong>
+        </div>
+        <button type="button" @click="draft = '总结我最近的笔记，并列出三个最值得复盘的主题。'">总结最近笔记</button>
+        <button type="button" @click="draft = '分析本月消费结构，告诉我哪些分类接近预算阈值。'">分析预算压力</button>
+        <button type="button" @click="draft = '把 Vue 学习进度整理成下周计划，按优先级输出。'">生成学习计划</button>
+      </div>
+      </template>
+    </aside>
 
     <el-drawer v-model="mobileSessionDrawer" direction="ltr" size="280px" title="对话列表">
       <el-button type="primary" class="drawer-new-btn" @click="startNewConversation">
@@ -185,9 +315,7 @@
       <el-form label-width="90px">
         <el-form-item label="模型">
           <el-select v-model="chatSettings.model" style="width: 100%">
-            <el-option label="glm-5-turbo" value="glm-5-turbo" />
-            <el-option label="gpt-5.3-codex" value="gpt-5.3-codex" />
-            <el-option label="qwen3.5-plus" value="qwen3.5-plus" />
+            <el-option label="deepseek-v4-pro" value="deepseek-v4-pro" />
           </el-select>
         </el-form-item>
         <el-form-item label="系统指令">
@@ -205,7 +333,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Operation, Setting, Download, RefreshRight, Microphone, Loading, Promotion, DataAnalysis, CopyDocument, DocumentAdd, Delete } from '@element-plus/icons-vue'
+import { Plus, Operation, Setting, Download, RefreshRight, Microphone, Loading, Promotion, DataAnalysis, CopyDocument, DocumentAdd, Delete, Fold, Expand } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import { aiApi } from '@/api'
@@ -215,11 +343,19 @@ import { useNoteStore } from '@/stores/note'
 
 const LOCAL_CONVERSATION_KEY = 'ai-chat-conversations-role-v2'
 const LOCAL_SETTINGS_KEY = 'ai-chat-settings-v2'
-const assistantAvatar = 'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=plnm-ai'
+const DEFAULT_CHAT_MODEL = 'deepseek-v4-pro'
+const assistantAvatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"%3E%3Crect width="64" height="64" rx="16" fill="%230f172a"/%3E%3Ctext x="32" y="39" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="white"%3EAI%3C/text%3E%3C/svg%3E'
 
 const userStore = useUserStore()
 const { userInfo } = storeToRefs(userStore)
 const userAvatar = computed(() => userInfo.value?.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png')
+const storageUserKey = computed(() => {
+  const user = userInfo.value || {}
+  const identity = user.id ?? user.username
+  return identity ? String(identity) : ''
+})
+const conversationStorageKey = computed(() => storageUserKey.value ? `${LOCAL_CONVERSATION_KEY}:${storageUserKey.value}` : '')
+const settingsStorageKey = computed(() => storageUserKey.value ? `${LOCAL_SETTINGS_KEY}:${storageUserKey.value}` : '')
 const router = useRouter()
 const noteStore = useNoteStore()
 
@@ -233,10 +369,14 @@ const sending = ref(false)
 const recognizing = ref(false)
 const mobileSessionDrawer = ref(false)
 const settingsVisible = ref(false)
+const isSessionPanelCollapsed = ref(false)
+const isContextPanelCollapsed = ref(false)
 const allowCrossRoleReference = ref(false)
 const useWebSocket = ref(false)
+const autoScroll = ref(true)
+const stopRequested = ref(false)
 const chatSettings = ref({
-  model: 'glm-5-turbo',
+  model: DEFAULT_CHAT_MODEL,
   systemPrompt: ''
 })
 const wsPreferredRoles = ['note_assistant', 'life_hub_butler', 'learning_center_mentor', 'creative_partner']
@@ -249,8 +389,11 @@ const activeRoleSessions = computed(() => roleConversations.value[activeRoleId.v
 const activeConversationId = computed(() => roleActiveConversationId.value[activeRoleId.value] || '')
 const activeConversation = computed(() => activeRoleSessions.value.find(c => c.id === activeConversationId.value) || null)
 const activeMessages = computed(() => activeConversation.value?.messages || [])
+const conversationWordCount = computed(() => activeMessages.value.reduce((sum, msg) => sum + String(msg.text || '').length, 0))
 
 let speechRecognition = null
+let activeAbortController = null
+let activeSocket = null
 
 const buildMessage = (role, text, loading = false, citations = null) => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -281,7 +424,8 @@ const ensureRoleContext = (roleId) => {
 }
 
 const saveState = () => {
-  localStorage.setItem(LOCAL_CONVERSATION_KEY, JSON.stringify({
+  if (!conversationStorageKey.value) return
+  localStorage.setItem(conversationStorageKey.value, JSON.stringify({
     roleConversations: roleConversations.value,
     roleActiveConversationId: roleActiveConversationId.value,
     activeRoleId: activeRoleId.value
@@ -289,22 +433,26 @@ const saveState = () => {
 }
 
 const saveSettings = () => {
-  localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(chatSettings.value))
+  if (settingsStorageKey.value) {
+    localStorage.setItem(settingsStorageKey.value, JSON.stringify(chatSettings.value))
+  }
   settingsVisible.value = false
   ElMessage.success('设置已保存')
 }
 
 const loadSettings = () => {
-  const raw = localStorage.getItem(LOCAL_SETTINGS_KEY)
+  chatSettings.value = { model: DEFAULT_CHAT_MODEL, systemPrompt: '' }
+  if (!settingsStorageKey.value) return
+  const raw = localStorage.getItem(settingsStorageKey.value)
   if (!raw) return
   try {
     const parsed = JSON.parse(raw)
     chatSettings.value = {
-      model: parsed.model || 'glm-5-turbo',
+      model: DEFAULT_CHAT_MODEL,
       systemPrompt: parsed.systemPrompt || ''
     }
   } catch {
-    chatSettings.value = { model: 'glm-5-turbo', systemPrompt: '' }
+    chatSettings.value = { model: DEFAULT_CHAT_MODEL, systemPrompt: '' }
   }
 }
 
@@ -332,7 +480,11 @@ const fallbackRoles = () => ([
 ])
 
 const loadConversationState = () => {
-  const raw = localStorage.getItem(LOCAL_CONVERSATION_KEY)
+  roleConversations.value = {}
+  roleActiveConversationId.value = {}
+  activeRoleId.value = 'system_operator'
+  if (!conversationStorageKey.value) return
+  const raw = localStorage.getItem(conversationStorageKey.value)
   if (!raw) return
   try {
     const parsed = JSON.parse(raw)
@@ -405,6 +557,24 @@ const removeConversation = async (sessionId) => {
   }
   ElMessage.success('对话已删除')
   nextTick(scrollToBottom)
+}
+
+const clearCurrentConversation = async () => {
+  const session = activeConversation.value
+  if (!session) return
+  try {
+    await ElMessageBox.confirm('确认清空当前对话内容吗？', '清空对话', {
+      confirmButtonText: '清空',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+  session.messages = [buildMessage('assistant', `你好，我是${activeRoleName.value}。`)]
+  session.updatedAt = Date.now()
+  ElMessage.success('当前对话已清空')
+  nextTick(() => scrollToBottom(true))
 }
 
 const updateConversationTitle = (session, text) => {
@@ -580,6 +750,7 @@ const sendMessage = async () => {
   session.updatedAt = Date.now()
   draft.value = ''
   sending.value = true
+  stopRequested.value = false
   nextTick(scrollToBottom)
 
   const loadingMessage = buildMessage('assistant', '', true)
@@ -614,14 +785,30 @@ const sendMessage = async () => {
       }
     }
   } catch (error) {
-    replaceMessage(session, loadingMessage.id, { text: error?.message || '请求失败', loading: false, time: Date.now() })
+    const fallbackText = stopRequested.value ? '已停止生成。' : (error?.message || '请求失败')
+    replaceMessage(session, loadingMessage.id, { text: fallbackText, loading: false, time: Date.now() })
   } finally {
     sending.value = false
+    stopRequested.value = false
+    activeAbortController = null
+    activeSocket = null
     nextTick(scrollToBottom)
   }
 }
 
-const scrollToBottom = () => {
+const stopGeneration = () => {
+  stopRequested.value = true
+  if (activeAbortController) {
+    activeAbortController.abort()
+  }
+  if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+    activeSocket.close()
+  }
+  sending.value = false
+}
+
+const scrollToBottom = (force = false) => {
+  if (!force && !autoScroll.value) return
   const el = messageScrollRef.value
   if (!el) return
   el.scrollTop = el.scrollHeight
@@ -723,9 +910,11 @@ const streamViaSse = async (session, messageId, text) => {
   const apiBase = import.meta.env.VITE_BASE_URL
   const apiPrefix = apiBase && apiBase.startsWith('http') ? apiBase.replace(/\/$/, '') : ''
   const url = `${apiPrefix || ''}/api/ai/stream?${params.toString()}`
+  activeAbortController = new AbortController()
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Accept': 'text/event-stream' }
+    headers: { 'Accept': 'text/event-stream' },
+    signal: activeAbortController.signal
   })
   if (!response.ok || !response.body) {
     replaceMessage(session, messageId, { text: '流式连接失败', loading: false, time: Date.now() })
@@ -739,6 +928,7 @@ const streamViaSse = async (session, messageId, text) => {
   let traceId = ''
 
   while (true) {
+    if (stopRequested.value) break
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
@@ -776,6 +966,9 @@ const streamViaSse = async (session, messageId, text) => {
       }
     }
   }
+  if (stopRequested.value) {
+    replaceMessage(session, messageId, { text: replyText || '已停止生成。', loading: false, citations, time: Date.now() })
+  }
 }
 
 const streamViaWebSocket = async (session, messageId, text) => {
@@ -793,7 +986,12 @@ const streamViaWebSocket = async (session, messageId, text) => {
 
   const connect = (payload) => new Promise((resolve) => {
     const socket = new WebSocket(wsUrl)
+    activeSocket = socket
     socket.onopen = () => {
+      if (stopRequested.value) {
+        socket.close()
+        return
+      }
       socket.send(JSON.stringify(payload))
     }
     socket.onmessage = (event) => {
@@ -803,6 +1001,10 @@ const streamViaWebSocket = async (session, messageId, text) => {
           const data = msg.data || {}
           citations = data.citations || citations
         } else if (msg.type === 'chunk') {
+          if (stopRequested.value) {
+            socket.close()
+            return
+          }
           const data = msg.data || {}
           const chunk = data.data || ''
           replyText += chunk
@@ -834,8 +1036,11 @@ const streamViaWebSocket = async (session, messageId, text) => {
   }
 
   const result = await connect(payload)
-  if (!result.done && result.offset > 0) {
+  if (!stopRequested.value && !result.done && result.offset > 0) {
     await connect({ action: 'resume', traceId, offset: result.offset })
+  }
+  if (stopRequested.value) {
+    replaceMessage(session, messageId, { text: replyText || '已停止生成。', loading: false, citations, time: Date.now() })
   }
   session.updatedAt = Date.now()
   sortSessions(activeRoleId.value)
@@ -856,6 +1061,15 @@ const buildWsUrl = (token) => {
 watch(roleConversations, saveState, { deep: true })
 watch(roleActiveConversationId, saveState, { deep: true })
 watch(activeRoleId, saveState)
+watch(storageUserKey, async (newKey, oldKey) => {
+  if (!newKey || newKey === oldKey) return
+  loadConversationState()
+  loadSettings()
+  roles.value.forEach(role => ensureRoleContext(role.id))
+  ensureRoleContext(activeRoleId.value)
+  await nextTick()
+  scrollToBottom(true)
+})
 
 onMounted(async () => {
   loadConversationState()
@@ -1333,6 +1547,763 @@ onMounted(async () => {
   }
   .role-tab {
     min-width: 100px;
+  }
+}
+
+/* v2 redesign overrides: desktop AI workspace */
+.ai-chat-page {
+  height: calc(100vh - 124px);
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 300px;
+  gap: 16px;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat-sidebar,
+.chat-main,
+.context-panel {
+  min-height: 0;
+  border: 1px solid #d8e2ed;
+  border-radius: 18px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.chat-sidebar {
+  width: auto;
+  border-right: 1px solid #d8e2ed;
+  background: #f8fafc;
+}
+
+.sidebar-head {
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.new-chat-btn {
+  min-height: 42px;
+  border-radius: 12px;
+  background: #0f172a;
+  border-color: #0f172a;
+  font-weight: 700;
+}
+
+.session-list {
+  padding: 12px;
+}
+
+.session-item {
+  border-radius: 14px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.session-item:hover {
+  background: #f1f8ff;
+  border-color: #bfd7ff;
+}
+
+.session-item.active {
+  background: #eaf4ff;
+  border-color: #93c5fd;
+}
+
+.session-title {
+  color: #0f172a;
+  font-weight: 750;
+}
+
+.session-time {
+  color: #64748b;
+}
+
+.chat-main {
+  background: #ffffff;
+}
+
+.chat-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 82px;
+  height: auto;
+  padding: 16px 18px;
+  border-bottom-color: #d8e2ed;
+}
+
+.bot-name {
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 850;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.bot-subtitle {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.topbar-actions :deep(.el-button) {
+  min-height: 36px;
+  border-radius: 10px;
+  color: #334155;
+  background: #f8fafc;
+}
+
+.topbar-actions :deep(.el-button:hover) {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.role-tabs-wrap {
+  padding: 12px 14px;
+  border-bottom-color: #d8e2ed;
+  background: #fbfdff;
+}
+
+.role-tabs {
+  gap: 10px;
+}
+
+.role-tab {
+  min-width: 132px;
+  border-radius: 14px;
+  border-color: #d8e2ed;
+  background: #ffffff;
+  color: #334155;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.role-tab.active {
+  color: #0f172a;
+  background: #e8f3ff;
+  border-color: #93c5fd;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.tab-name {
+  font-size: 14px;
+}
+
+.messages-panel {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%),
+    radial-gradient(circle at 80% 0%, rgba(37, 99, 235, 0.08), transparent 34%);
+}
+
+.messages-inner {
+  max-width: 940px;
+  padding: 22px 24px;
+}
+
+.msg-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border-color: #cbd5e1;
+}
+
+.bubble-wrap {
+  max-width: min(74%, 780px);
+}
+
+.msg-bubble {
+  border-radius: 16px;
+  padding: 13px 15px;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.bubble-assistant {
+  border-color: #d8e2ed;
+  background: #ffffff;
+  border-top-left-radius: 6px;
+}
+
+.bubble-user {
+  background: #0f172a;
+  color: #ffffff;
+  border-top-right-radius: 6px;
+}
+
+.msg-action-btn {
+  border-radius: 10px;
+}
+
+.citation-tag {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.chat-input-panel {
+  padding: 14px 16px 16px;
+  border-top-color: #d8e2ed;
+  background: #ffffff;
+}
+
+.input-toolbar {
+  margin-bottom: 12px;
+}
+
+.input-toolbar :deep(.el-button) {
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.stream-badge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 700;
+}
+
+.input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 12px;
+}
+
+.input-row :deep(.el-textarea__inner) {
+  min-height: 82px !important;
+  border-radius: 14px;
+  border-color: #cbd5e1;
+  box-shadow: none;
+  line-height: 1.7;
+}
+
+.input-row :deep(.el-textarea__inner:focus) {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.send-btn {
+  height: 82px;
+  min-width: 104px;
+  border-radius: 14px;
+  background: #0f172a;
+  border-color: #0f172a;
+  font-weight: 800;
+}
+
+.context-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  background: #f8fafc;
+  overflow-y: auto;
+}
+
+.context-card {
+  border: 1px solid #d8e2ed;
+  border-radius: 16px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.context-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.context-card-head strong {
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+}
+
+.context-map {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.context-row {
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.context-row span {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.context-row b,
+.context-card p {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.context-card p {
+  margin: 12px 0 0;
+}
+
+.prompt-card {
+  display: grid;
+  gap: 10px;
+}
+
+.prompt-card button {
+  border: 1px solid #d8e2ed;
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 700;
+}
+
+.prompt-card button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+@media (max-width: 1280px) {
+  .ai-chat-page {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .context-panel {
+    display: none;
+  }
+}
+
+/* image-reference AI workspace pass */
+.ai-chat-page {
+  height: calc(100vh - 112px);
+  grid-template-columns: 268px minmax(0, 1fr) 292px;
+  gap: 14px;
+}
+
+.chat-sidebar,
+.chat-main,
+.context-panel {
+  border-color: #d7e1ec;
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(33, 54, 86, 0.05);
+}
+
+.chat-sidebar,
+.context-panel {
+  background: #f7fafc;
+}
+
+.sidebar-head {
+  padding: 12px;
+}
+
+.new-chat-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  background: #1f6feb;
+  border-color: #1f6feb;
+}
+
+.session-list {
+  padding: 10px;
+}
+
+.session-item {
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.session-item.active {
+  background: #e9f2ff;
+  border-color: #bed6ff;
+}
+
+.session-title {
+  color: #172033;
+  font-size: 13px;
+}
+
+.session-time {
+  color: #66758b;
+}
+
+.chat-topbar {
+  min-height: 72px;
+  padding: 12px 14px;
+}
+
+.bot-name {
+  color: #172033;
+  font-size: 20px;
+}
+
+.bot-subtitle {
+  color: #66758b;
+}
+
+.topbar-actions :deep(.el-button) {
+  border-radius: 8px;
+  background: #f7fafc;
+}
+
+.role-tabs-wrap {
+  padding: 10px 12px;
+}
+
+.role-tab {
+  min-width: 126px;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.role-tab.active {
+  background: #e9f2ff;
+  border-color: #bed6ff;
+}
+
+.messages-panel {
+  background: #fbfdff;
+}
+
+.messages-inner {
+  max-width: 900px;
+  padding: 18px 20px;
+}
+
+.msg-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.msg-bubble {
+  border-radius: 8px;
+  padding: 11px 13px;
+}
+
+.bubble-assistant {
+  border-color: #d7e1ec;
+}
+
+.bubble-user {
+  background: #1f6feb;
+}
+
+.chat-input-panel {
+  padding: 12px 14px 14px;
+}
+
+.input-toolbar {
+  gap: 8px;
+}
+
+.stream-badge {
+  background: #eaf8ef;
+  color: #15803d;
+}
+
+.input-row {
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 10px;
+}
+
+.input-row :deep(.el-textarea__inner) {
+  min-height: 76px !important;
+  border-radius: 8px;
+}
+
+.send-btn {
+  height: 76px;
+  min-width: 96px;
+  border-radius: 8px;
+  background: #1f6feb;
+  border-color: #1f6feb;
+}
+
+.context-panel {
+  padding: 12px;
+}
+
+.context-card {
+  border-color: #d7e1ec;
+  border-radius: 8px;
+}
+
+.context-card-head strong,
+.citation-tag {
+  border-radius: 999px;
+}
+
+.context-row,
+.prompt-card button {
+  border-radius: 8px;
+}
+
+.prompt-card button:hover {
+  border-color: #bed6ff;
+  background: #e9f2ff;
+}
+
+@media (max-width: 1280px) {
+  .ai-chat-page {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+}
+
+/* collapsible chat workspace */
+.ai-chat-page {
+  transition: grid-template-columns 200ms ease;
+}
+
+.ai-chat-page.sessions-collapsed {
+  grid-template-columns: 62px minmax(0, 1fr) 292px;
+}
+
+.ai-chat-page.context-collapsed {
+  grid-template-columns: 268px minmax(0, 1fr) 62px;
+}
+
+.ai-chat-page.sessions-collapsed.context-collapsed {
+  grid-template-columns: 62px minmax(0, 1fr) 62px;
+}
+
+.chat-sidebar,
+.context-panel {
+  transition: width 200ms ease, padding 200ms ease, background 200ms ease;
+}
+
+.chat-sidebar.collapsed,
+.context-panel.collapsed {
+  width: auto;
+  align-items: center;
+  padding: 10px 8px;
+  overflow: hidden;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-sidebar.collapsed .sidebar-head {
+  flex-direction: column;
+  padding: 8px 0;
+  border-bottom: 0;
+}
+
+.panel-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  color: #526276;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.panel-icon-btn:hover {
+  border-color: #bed6ff;
+  color: #1f6feb;
+  background: #e9f2ff;
+}
+
+.panel-icon-btn.is-large {
+  width: 42px;
+  height: 42px;
+}
+
+.panel-icon-btn.is-primary {
+  color: #ffffff;
+  border-color: #1f6feb;
+  background: #1f6feb;
+}
+
+.collapsed-panel-summary {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  margin-top: 8px;
+  color: #66758b;
+  writing-mode: vertical-rl;
+}
+
+.collapsed-panel-summary span {
+  color: #172033;
+  font-size: 18px;
+  font-weight: 850;
+  writing-mode: horizontal-tb;
+}
+
+.collapsed-panel-summary small {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.role-select-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #d7e1ec;
+  padding: 10px 14px;
+  background: #fbfdff;
+}
+
+.role-select-card {
+  min-width: min(420px, 50%);
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.role-label {
+  color: #66758b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.role-select {
+  width: 100%;
+}
+
+.role-select :deep(.el-select__wrapper) {
+  min-height: 42px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #d7e1ec inset;
+}
+
+.role-select :deep(.el-select-dropdown__item) {
+  height: auto;
+  padding: 8px 10px;
+}
+
+.role-option {
+  display: grid;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.role-option span {
+  color: #172033;
+  font-weight: 800;
+}
+
+.role-option small {
+  color: #66758b;
+  font-size: 12px;
+}
+
+.conversation-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.conversation-tools span {
+  border: 1px solid #d7e1ec;
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #526276;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.topbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.danger-tool {
+  color: #dc2626 !important;
+}
+
+.context-panel.collapsed {
+  justify-content: flex-start;
+  background: #ffffff;
+}
+
+.context-collapsed-tools {
+  min-height: 180px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 12px;
+}
+
+.context-collapsed-tools span {
+  color: #66758b;
+  font-size: 12px;
+  font-weight: 800;
+  writing-mode: vertical-rl;
+}
+
+.context-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-head-actions .panel-icon-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.ai-chat-page.sessions-collapsed .messages-inner,
+.ai-chat-page.context-collapsed .messages-inner {
+  max-width: 1080px;
+}
+
+.ai-chat-page.sessions-collapsed.context-collapsed .messages-inner {
+  max-width: 1160px;
+}
+
+@media (max-width: 1280px) {
+  .ai-chat-page,
+  .ai-chat-page.sessions-collapsed,
+  .ai-chat-page.context-collapsed,
+  .ai-chat-page.sessions-collapsed.context-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chat-sidebar,
+  .context-panel {
+    display: none;
+  }
+
+  .role-select-wrap {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .role-select-card {
+    min-width: 0;
+    grid-template-columns: 1fr;
   }
 }
 </style>

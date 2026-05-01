@@ -220,6 +220,18 @@ const buildInsights = () => {
   insights.value = list
 }
 
+const resizeCharts = () => {
+  pieChart?.resize()
+  lineChart?.resize()
+  barChart?.resize()
+}
+
+const scheduleChartResize = () => {
+  resizeCharts()
+  window.requestAnimationFrame(() => resizeCharts())
+  window.setTimeout(() => resizeCharts(), 240)
+}
+
 const renderCharts = (chartData) => {
   if (!pieRef.value || !lineRef.value || !barRef.value) return
   if (!pieChart) pieChart = echarts.init(pieRef.value)
@@ -228,37 +240,55 @@ const renderCharts = (chartData) => {
 
   pieChart.setOption({
     animationDuration: 500,
+    color: ['#2563eb', '#059669', '#f59e0b'],
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    legend: { bottom: 0, textStyle: { color: '#64748b', fontSize: 11 } },
     series: [
       {
         type: 'pie',
         radius: ['42%', '68%'],
+        center: ['50%', '46%'],
         data: chartData.pieData,
-        label: { formatter: '{b}\n{d}%', fontSize: 11 }
+        label: { formatter: '{b}\n{d}%', color: '#334155', fontSize: 11 }
       }
     ]
-  })
+  }, true)
 
   lineChart.setOption({
     animationDuration: 500,
+    color: ['#2563eb'],
     tooltip: { trigger: 'axis' },
     grid: { left: 34, right: 16, top: 24, bottom: 30 },
-    xAxis: { type: 'category', data: ['上周', '本周'] },
-    yAxis: { type: 'value' },
+    xAxis: { type: 'category', data: ['上周', '本周'], axisLabel: { color: '#64748b' } },
+    yAxis: { type: 'value', axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
     series: [
-      { type: 'line', smooth: true, data: chartData.lineData, itemStyle: { color: '#4f7cff' }, areaStyle: { opacity: 0.12 } }
+      {
+        type: 'line',
+        smooth: true,
+        data: chartData.lineData,
+        symbolSize: 9,
+        lineStyle: { width: 3 },
+        areaStyle: { opacity: 0.12 }
+      }
     ]
-  })
+  }, true)
 
   barChart.setOption({
     animationDuration: 500,
+    color: ['#059669'],
     tooltip: { trigger: 'axis' },
     grid: { left: 34, right: 16, top: 24, bottom: 34 },
-    xAxis: { type: 'category', data: chartData.barData.map(i => i.name), axisLabel: { fontSize: 11 } },
-    yAxis: { type: 'value' },
-    series: [{ type: 'bar', barWidth: '42%', data: chartData.barData.map(i => i.value), itemStyle: { borderRadius: [6, 6, 0, 0], color: '#67c23a' } }]
-  })
+    xAxis: { type: 'category', data: chartData.barData.map(i => i.name), axisLabel: { color: '#64748b', fontSize: 11 } },
+    yAxis: { type: 'value', axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+    series: [{
+      type: 'bar',
+      barWidth: '42%',
+      data: chartData.barData.map(i => i.value),
+      itemStyle: { borderRadius: [7, 7, 0, 0] }
+    }]
+  }, true)
+
+  scheduleChartResize()
 }
 
 const prepareData = async () => {
@@ -340,15 +370,14 @@ const prepareData = async () => {
   }
 }
 
-const applyData = (data) => {
+const applyData = async (data) => {
   Object.assign(metrics, data.metrics)
-  renderCharts(data.charts)
   buildInsights()
-  nextTick(() => {
-    pieChart && pieChart.resize()
-    lineChart && lineChart.resize()
-    barChart && barChart.resize()
-  })
+  loading.value = false
+  await nextTick()
+  renderCharts(data.charts)
+  await nextTick()
+  scheduleChartResize()
 }
 
 const load = async (force = false) => {
@@ -359,18 +388,18 @@ const load = async (force = false) => {
     if (!force) {
       const cache = loadFromCache()
       if (cache) {
-        applyData(cache)
-        loading.value = false
+        await applyData(cache)
         return
       }
     }
     const data = await prepareData()
-    applyData(data)
     saveToCache(data)
+    await applyData(data)
   } catch (error) {
     errorMsg.value = error?.message || '周复盘加载失败，请稍后重试'
-  } finally {
     loading.value = false
+  } finally {
+    if (loading.value) loading.value = false
   }
 }
 
@@ -393,11 +422,7 @@ onMounted(() => {
   } else {
     load()
   }
-  const resizeHandler = () => {
-    pieChart && pieChart.resize()
-    lineChart && lineChart.resize()
-    barChart && barChart.resize()
-  }
+  const resizeHandler = () => resizeCharts()
   window.addEventListener('resize', resizeHandler)
   onBeforeUnmount(() => {
     window.removeEventListener('resize', resizeHandler)
@@ -406,7 +431,7 @@ onMounted(() => {
 
 watch(showCompare, () => {
   nextTick(() => {
-    lineChart && lineChart.resize()
+    resizeCharts()
   })
 })
 
@@ -511,24 +536,32 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .chart-box {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   border: 1px solid #e9eef9;
   border-radius: 12px;
-  padding: 10px 10px 4px;
+  padding: 10px 10px 8px;
   background: #fff;
 }
 
 .chart-title {
+  min-height: 0;
   font-size: 13px;
   color: #556381;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .chart {
   width: 100%;
-  height: 220px;
+  min-height: 0;
+  height: 210px;
+  flex: 1 1 auto;
 }
 
 .insight-box {

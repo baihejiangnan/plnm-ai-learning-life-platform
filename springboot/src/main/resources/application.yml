@@ -57,8 +57,11 @@ spring:
       max-request-size: 100MB
   ai:
     openai:
-      base-url: ${AI_BASE_URL:https://aihubmix.com}
-      api-key: sk-3jQN7tMLjq9P7nfoF44b3c40625543A4B23b94B48123099b
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      api-key: ${DEEPSEEK_API_KEY:dummy}
+      chat:
+        options:
+          model: ${DEEPSEEK_MODEL:deepseek-v4-pro}
 
 # 配置mybatis实体和xml映射
 mybatis:
@@ -115,7 +118,10 @@ fileBaseUrl: http://localhost:8080
 
 app:
   ai:
-    model: ${AI_MODEL:glm-5-turbo}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    api-key: ${DEEPSEEK_API_KEY:}
+    model: ${DEEPSEEK_MODEL:deepseek-v4-pro}
+    timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:60}
     audit:
       retention-days: 90
       cleanup-cron: "0 0 3 * * ?"

@@ -78,6 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                path.equals("/") ||
                path.equals("/init") ||
                path.equals("/reset") ||
+               path.equals("/api/captcha") ||
                path.equals("/api/user/register") ||
                path.equals("/api/user/login") ||
                path.equals("/api/user/logout") ||

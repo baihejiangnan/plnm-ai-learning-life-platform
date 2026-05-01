@@ -294,6 +294,18 @@ export const userApi = {
 }
 
 /**
+ * 验证码相关API
+ */
+export const captchaApi = {
+  getCaptcha() {
+    return request({
+      url: `${API_BASE}/captcha`,
+      method: 'get'
+    })
+  }
+}
+
+/**
  * 文件上传相关API
  */
 export const fileApi = {
@@ -366,6 +378,7 @@ export const systemApi = {
 
 export const notificationApi = {
   getList: (params) => request({ url: '/api/notifications', method: 'get', params }),
+  overview: (params) => request({ url: '/api/notifications/overview', method: 'get', params }),
   markRead: (data) => request({ url: '/api/notifications/read', method: 'post', data }),
   delete: (data) => request({ url: '/api/notifications', method: 'delete', data }),
   getSettings: (params) => request({ url: '/api/notifications/settings', method: 'get', params }),

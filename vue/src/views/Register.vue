@@ -1,310 +1,478 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="login-title">欢迎注册</div>
-      <el-form :model="data.form" ref="formRef" :rules="data.rules">
-        <el-form-item prop="username">
-          <el-input 
-            :prefix-icon="User" 
-            size="large" 
-            v-model="data.form.username" 
-            placeholder="请输入账号"
-            class="login-input"
-          />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input 
-            :prefix-icon="Lock" 
-            size="large" 
-            v-model="data.form.password" 
-            placeholder="请输入密码" 
-            show-password
-            class="login-input"
-          />
-        </el-form-item>
-        <el-form-item prop="confirmPassword">
-          <el-input 
-            :prefix-icon="Lock" 
-            size="large" 
-            v-model="data.form.confirmPassword" 
-            placeholder="请确认密码" 
-            show-password
-            class="login-input"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button 
-            size="large" 
-            type="primary" 
-            class="login-button"
-            @click="register"
-          >注 册</el-button>
-        </el-form-item>
-      </el-form>
-      <div class="register-link">
-        已有账号？<a href="/login">立即登录</a>
+  <main class="register-page">
+    <section class="register-shell">
+      <div class="brand-panel">
+        <div class="brand-badge">PLNM ACCOUNT</div>
+        <h1>创建你的生活中枢账号</h1>
+        <p>注册后会自动准备标签、预算分类和欢迎通知，进入首页就能开始记录。</p>
+
+        <div class="setup-list" aria-label="注册后自动初始化内容">
+          <div class="setup-item">
+            <span class="setup-icon">01</span>
+            <div>
+              <strong>默认标签</strong>
+              <small>学习、生活、预算、复盘</small>
+            </div>
+          </div>
+          <div class="setup-item">
+            <span class="setup-icon">02</span>
+            <div>
+              <strong>预算分类</strong>
+              <small>餐饮、交通、购物、娱乐等</small>
+            </div>
+          </div>
+          <div class="setup-item">
+            <span class="setup-icon">03</span>
+            <div>
+              <strong>欢迎通知</strong>
+              <small>首页小铃铛会显示首次提醒</small>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
+
+      <div class="form-panel">
+        <div class="form-header">
+          <div>
+            <span>注册</span>
+            <h2>填写账号信息</h2>
+          </div>
+          <RouterLink to="/login">去登录</RouterLink>
+        </div>
+
+        <el-form
+          ref="formRef"
+          :model="data.form"
+          :rules="data.rules"
+          class="register-form"
+          label-position="top"
+          @keyup.enter="register"
+        >
+          <el-form-item label="账号" prop="username">
+            <el-input
+              v-model.trim="data.form.username"
+              :prefix-icon="User"
+              size="large"
+              placeholder="3-32 位字母、数字或下划线"
+              autocomplete="username"
+            />
+          </el-form-item>
+
+          <el-form-item label="昵称" prop="name">
+            <el-input
+              v-model.trim="data.form.name"
+              :prefix-icon="Postcard"
+              size="large"
+              placeholder="显示在顶部用户信息中"
+              autocomplete="nickname"
+            />
+          </el-form-item>
+
+          <el-form-item label="密码" prop="password">
+            <el-input
+              v-model="data.form.password"
+              :prefix-icon="Lock"
+              size="large"
+              placeholder="至少 6 位"
+              show-password
+              autocomplete="new-password"
+            />
+          </el-form-item>
+
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input
+              v-model="data.form.confirmPassword"
+              :prefix-icon="Lock"
+              size="large"
+              placeholder="再次输入密码"
+              show-password
+              autocomplete="new-password"
+            />
+          </el-form-item>
+
+          <el-form-item label="验证码" prop="captchaCode">
+            <div class="captcha-row">
+              <el-input
+                v-model.trim="data.form.captchaCode"
+                size="large"
+                maxlength="4"
+                placeholder="输入右侧字符"
+                autocomplete="off"
+              />
+              <button
+                class="captcha-image"
+                type="button"
+                :disabled="data.captchaLoading"
+                title="点击刷新验证码"
+                @click="refreshCaptcha"
+              >
+                <img v-if="data.captchaImage" :src="data.captchaImage" alt="验证码" />
+                <span v-else>刷新</span>
+              </button>
+            </div>
+          </el-form-item>
+
+          <el-button
+            type="primary"
+            size="large"
+            class="register-button"
+            :loading="data.submitting"
+            @click="register"
+          >
+            创建账号并进入首页
+          </el-button>
+        </el-form>
+
+        <p class="form-tip">验证码 5 分钟内有效，提交一次后会自动失效。</p>
+      </div>
+    </section>
+  </main>
 </template>
 
 <script setup>
-  import { reactive, ref } from "vue";
-  import { User, Lock } from "@element-plus/icons-vue";
-  import request from "@/utils/request";
-  import {ElMessage} from "element-plus";
-  import router from "@/router";
+import { onMounted, reactive, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { Lock, Postcard, User } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { captchaApi, userApi } from '@/api'
+import { useUserStore } from '@/stores/user'
 
-  const validatePass = (rule, value, callback) => {
-    if (!value) {
-      callback(new Error('请确认密码'))
-    } else if (value !== data.form.password) {
-      callback(new Error('两次输入密码不一致'))
-    } else {
-      callback()
-    }
+const router = useRouter()
+const userStore = useUserStore()
+const formRef = ref()
+
+const validateConfirmPassword = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('请确认密码'))
+  } else if (value !== data.form.password) {
+    callback(new Error('两次输入密码不一致'))
+  } else {
+    callback()
   }
+}
 
-  const data = reactive({
-    form: { role: 'USER' },
-    rules: {
-      username: [
-        { required: true, message: '请输入账号', trigger: 'blur' },
-      ],
-      password: [
-        { required: true, message: '请输入密码', trigger: 'blur' },
-      ],
-      confirmPassword: [
-        { validator: validatePass, trigger: 'blur' },
-      ],
-    }
-  })
-
-  const formRef = ref()
-
-  // 修复：使用 async/await 形式进行校验与提交流程，并统一捕获异常
-  const register = async () => {
-    try {
-      const valid = await formRef.value.validate()
-      if (!valid) return
-
-      // 仅发送后端需要的字段，避免将 confirmPassword 传给后端
-      const payload = {
-        username: data.form.username,
-        password: data.form.password,
-        role: 'USER'
-      }
-
-      const res = await request.post('/api/user/register', payload)
-      if (res && (res.code === 200 || res.code === '200')) {
-        ElMessage.success('注册成功')
-        router.push('/login')
-      } else {
-        ElMessage.error(res?.msg || '注册失败')
-      }
-    } catch (error) {
-      console.error(error)
-      ElMessage.error(error?.response?.data?.msg || error?.message || '请求失败')
-    }
+const data = reactive({
+  submitting: false,
+  captchaLoading: false,
+  captchaImage: '',
+  form: {
+    username: '',
+    name: '',
+    password: '',
+    confirmPassword: '',
+    captchaId: '',
+    captchaCode: ''
+  },
+  rules: {
+    username: [
+      { required: true, message: '请输入账号', trigger: 'blur' },
+      { min: 3, max: 32, message: '账号长度需为 3-32 位', trigger: 'blur' },
+      { pattern: /^[A-Za-z0-9_]+$/, message: '账号只能包含字母、数字和下划线', trigger: 'blur' }
+    ],
+    name: [
+      { required: true, message: '请输入昵称', trigger: 'blur' },
+      { max: 32, message: '昵称不能超过 32 个字符', trigger: 'blur' }
+    ],
+    password: [
+      { required: true, message: '请输入密码', trigger: 'blur' },
+      { min: 6, max: 64, message: '密码长度需为 6-64 位', trigger: 'blur' }
+    ],
+    confirmPassword: [
+      { validator: validateConfirmPassword, trigger: 'blur' }
+    ],
+    captchaCode: [
+      { required: true, message: '请输入验证码', trigger: 'blur' },
+      { min: 4, max: 4, message: '验证码为 4 位字符', trigger: 'blur' }
+    ]
   }
+})
+
+const refreshCaptcha = async () => {
+  try {
+    data.captchaLoading = true
+    const res = await captchaApi.getCaptcha()
+    data.captchaImage = res?.data?.image || ''
+    data.form.captchaId = res?.data?.captchaId || ''
+    data.form.captchaCode = ''
+  } catch (error) {
+    ElMessage.error(error?.message || '验证码加载失败')
+  } finally {
+    data.captchaLoading = false
+  }
+}
+
+const register = async () => {
+  if (data.submitting) return
+
+  try {
+    const valid = await formRef.value.validate()
+    if (!valid) return
+
+    data.submitting = true
+    const payload = {
+      username: data.form.username,
+      password: data.form.password,
+      name: data.form.name,
+      captchaId: data.form.captchaId,
+      captchaCode: data.form.captchaCode
+    }
+
+    const res = await userApi.register(payload)
+    if (!res || res.code !== 200) {
+      throw new Error(res?.msg || '注册失败')
+    }
+
+    await userStore.login({
+      username: data.form.username,
+      password: data.form.password
+    })
+    await router.push('/home')
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.msg || error?.message || '注册失败')
+    await refreshCaptcha()
+  } finally {
+    data.submitting = false
+  }
+}
+
+onMounted(refreshCaptcha)
 </script>
 
 <style scoped>
-.login-container {
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-  background-size: 400% 400%;
-  animation: gradientBG 15s ease infinite;
-  position: relative;
+.register-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(37, 99, 235, 0.16), transparent 30%),
+    radial-gradient(circle at 84% 8%, rgba(16, 185, 129, 0.16), transparent 30%),
+    linear-gradient(135deg, #eef6ff 0%, #f8fafc 48%, #ecfdf5 100%);
+  color: #0f172a;
 }
 
-.login-container::before,
-.login-container::after,
-.login-container .star {
+.register-shell {
+  width: min(980px, 100%);
+  min-height: 620px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  overflow: hidden;
+  border: 1px solid #d8e2ed;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.brand-panel {
+  position: relative;
+  padding: 48px;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(30, 64, 175, 0.88)),
+    #0f172a;
+  color: #fff;
+}
+
+.brand-panel::after {
   content: '';
   position: absolute;
-  width: 2px;
-  height: 2px;
-  background: white;
-  box-shadow: 0 0 20px 2px rgba(255,255,255,0.7),
-              0 0 40px 6px rgba(255,255,255,0.5),
-              0 0 60px 10px rgba(255,255,255,0.3);
+  inset: auto 42px 42px auto;
+  width: 180px;
+  height: 180px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
 }
 
-.login-container::before {
-  animation: shooting-star-1 3s linear infinite;
-  top: 20%;
-  left: -10%;
+.brand-badge {
+  width: fit-content;
+  margin-bottom: 32px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(219, 234, 254, 0.14);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
-.login-container::after {
-  animation: shooting-star-2 4s linear infinite;
-  top: 40%;
-  left: -5%;
+.brand-panel h1 {
+  max-width: 420px;
+  margin: 0;
+  font-size: 48px;
+  line-height: 1.08;
+  letter-spacing: 0;
 }
 
-.login-container .star:nth-child(1) {
-  animation: shooting-star-3 5s linear infinite;
-  top: 60%;
-  left: -15%;
+.brand-panel p {
+  max-width: 440px;
+  margin: 20px 0 0;
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 17px;
+  line-height: 1.8;
 }
 
-.login-container .star:nth-child(2) {
-  animation: shooting-star-4 6s linear infinite;
-  top: 80%;
-  left: -8%;
+.setup-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  margin-top: 52px;
 }
 
-.login-box {
-  width: 380px;
-  padding: 40px;
-  border-radius: 15px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  animation: fadeIn 0.5s ease-out;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+.setup-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.login-box:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+.setup-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 900;
 }
 
-.login-title {
-  font-size: 28px;
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 35px;
-  color: #2c3e50;
-  letter-spacing: 2px;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+.setup-item strong,
+.setup-item small {
+  display: block;
 }
 
-.login-input :deep(.el-input__wrapper) {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  transition: all 0.3s ease;
+.setup-item strong {
+  font-size: 16px;
 }
 
-.login-input :deep(.el-input__wrapper):hover {
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+.setup-item small {
+  margin-top: 4px;
+  color: rgba(226, 232, 240, 0.72);
 }
 
-.login-button {
-  width: 100%;
-  border-radius: 8px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.form-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 42px;
 }
 
-.login-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+.form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
 }
 
-.register-link {
-  text-align: right;
-  margin-top: 20px;
-  font-size: 14px;
-  color: #606266;
+.form-header span {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 900;
 }
 
-.register-link a {
-  color: #667eea;
+.form-header h2 {
+  margin: 6px 0 0;
+  font-size: 30px;
+  letter-spacing: 0;
+}
+
+.form-header a {
+  border: 1px solid #d8e2ed;
+  border-radius: 12px;
+  padding: 9px 13px;
+  color: #0f172a;
+  font-weight: 800;
   text-decoration: none;
-  font-weight: 600;
-  transition: color 0.3s ease;
 }
 
-.register-link a:hover {
-  color: #764ba2;
+.register-form :deep(.el-form-item__label) {
+  color: #334155;
+  font-weight: 800;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.register-form :deep(.el-input__wrapper) {
+  min-height: 46px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px #d8e2ed inset;
 }
 
-@keyframes gradientBG {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+.captcha-row {
+  display: grid;
+  grid-template-columns: 1fr 138px;
+  gap: 10px;
+  width: 100%;
 }
 
-@keyframes shooting-star-1 {
-  0% {
-    transform: translate(0, 0) rotate(45deg);
-    opacity: 0;
-  }
-  10%, 90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(100vw, -100vh) rotate(45deg);
-    opacity: 0;
-  }
+.captcha-image {
+  height: 46px;
+  overflow: hidden;
+  border: 1px solid #d8e2ed;
+  border-radius: 14px;
+  background: #f8fafc;
+  cursor: pointer;
 }
 
-@keyframes shooting-star-2 {
-  0% {
-    transform: translate(0, 0) rotate(35deg);
-    opacity: 0;
-  }
-  15%, 85% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(90vw, -90vh) rotate(35deg);
-    opacity: 0;
-  }
+.captcha-image:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
-@keyframes shooting-star-3 {
-  0% {
-    transform: translate(0, 0) rotate(55deg);
-    opacity: 0;
-  }
-  20%, 80% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(110vw, -95vh) rotate(55deg);
-    opacity: 0;
-  }
+.captcha-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-@keyframes shooting-star-4 {
-  0% {
-    transform: translate(0, 0) rotate(40deg);
-    opacity: 0;
+.register-button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 14px;
+  background: #0f172a;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.register-button:hover {
+  background: #1e293b;
+}
+
+.form-tip {
+  margin: 18px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .register-page {
+    padding: 18px;
   }
-  25%, 75% {
-    opacity: 1;
+
+  .register-shell {
+    grid-template-columns: 1fr;
   }
-  100% {
-    transform: translate(95vw, -85vh) rotate(40deg);
-    opacity: 0;
+
+  .brand-panel {
+    padding: 34px;
+  }
+
+  .brand-panel h1 {
+    font-size: 34px;
+  }
+
+  .form-panel {
+    padding: 30px;
   }
 }
 </style>

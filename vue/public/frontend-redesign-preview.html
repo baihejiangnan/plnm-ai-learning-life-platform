@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PLNM 前端重设计预览</title>
+    <style>
+      :root {
+        --bg: #eef2f3;
+        --ink: #16211f;
+        --muted: #66736f;
+        --line: #d7dfdc;
+        --panel: #ffffff;
+        --panel-soft: #f7f9f8;
+        --blue: #1f65d6;
+        --teal: #0f8f83;
+        --amber: #c27a16;
+        --red: #c8493a;
+        --green: #287b44;
+        --shadow: 0 18px 50px rgba(17, 33, 29, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          linear-gradient(135deg, rgba(31, 101, 214, 0.08), transparent 34%),
+          linear-gradient(315deg, rgba(15, 143, 131, 0.1), transparent 38%),
+          var(--bg);
+        font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+        overflow-x: hidden;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .preview-shell {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        background: #17211f;
+        color: #dfe8e5;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 8px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: #e7f2ef;
+      }
+
+      .brand-mark img {
+        width: 22px;
+        height: 22px;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 16px;
+        letter-spacing: 0;
+      }
+
+      .brand span {
+        display: block;
+        margin-top: 3px;
+        color: #9eaaa6;
+        font-size: 12px;
+      }
+
+      .nav-section {
+        display: grid;
+        gap: 7px;
+      }
+
+      .nav-label {
+        padding: 0 8px;
+        color: #91a09b;
+        font-size: 12px;
+      }
+
+      .nav-item {
+        border: 0;
+        width: 100%;
+        min-height: 42px;
+        border-radius: 8px;
+        color: #dfe8e5;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 10px;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .nav-item .mark {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: #17211f;
+        background: #dfe8e5;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .nav-item.active {
+        background: #edf4f1;
+        color: #17211f;
+      }
+
+      .nav-item.active .mark {
+        background: #0f8f83;
+        color: #fff;
+      }
+
+      .sidebar-foot {
+        margin-top: auto;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .sidebar-foot b {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+
+      .sidebar-foot span {
+        color: #aebbb7;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .workspace {
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: hidden;
+        padding: 20px;
+      }
+
+      .topbar {
+        height: 64px;
+        display: grid;
+        grid-template-columns: minmax(240px, 1fr) auto auto;
+        gap: 14px;
+        align-items: center;
+        margin-bottom: 18px;
+      }
+
+      .search {
+        height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.82);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 14px;
+      }
+
+      .search input {
+        border: 0;
+        outline: 0;
+        width: 100%;
+        min-width: 0;
+        background: transparent;
+        color: var(--ink);
+      }
+
+      .mode-switch {
+        display: flex;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .mode-switch button {
+        border: 0;
+        min-width: 92px;
+        height: 34px;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .mode-switch button.active {
+        color: #fff;
+        background: #17211f;
+      }
+
+      .profile {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 44px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1f65d6, #0f8f83);
+      }
+
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.7fr);
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .hero-panel,
+      .side-panel,
+      .module-card,
+      .chart-panel,
+      .rank-panel,
+      .session-rail,
+      .conversation,
+      .context-panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-panel {
+        min-height: 294px;
+        padding: 28px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 22px;
+        overflow: hidden;
+      }
+
+      .hero-panel > *,
+      .side-panel,
+      .module-card,
+      .chart-panel,
+      .rank-panel,
+      .session-rail,
+      .conversation,
+      .context-panel {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--teal);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 10px 0 12px;
+        font-size: 42px;
+        line-height: 1.08;
+        letter-spacing: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .lead {
+        margin: 0;
+        max-width: 680px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.75;
+      }
+
+      .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .btn {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        height: 38px;
+        padding: 0 14px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .btn.primary {
+        border-color: #17211f;
+        background: #17211f;
+        color: #fff;
+      }
+
+      .mission-strip {
+        display: grid;
+        gap: 10px;
+        align-self: stretch;
+      }
+
+      .mission-item {
+        display: grid;
+        grid-template-columns: 10px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid #dce5e2;
+        border-radius: 8px;
+        background: var(--panel-soft);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--blue);
+      }
+
+      .dot.teal {
+        background: var(--teal);
+      }
+
+      .dot.amber {
+        background: var(--amber);
+      }
+
+      .mission-item b {
+        display: block;
+        font-size: 13px;
+      }
+
+      .mission-item span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .side-panel {
+        padding: 18px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 17px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        border: 1px solid #cbd8d4;
+        padding: 4px 9px;
+        color: var(--muted);
+        background: #fff;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .review-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .review-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid #e7eeeb;
+      }
+
+      .review-item:last-child {
+        border-bottom: 0;
+      }
+
+      .review-item b {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      .review-item span {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .module-card {
+        padding: 16px;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .metric-value {
+        margin: 8px 0;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .metric-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .trend {
+        color: var(--green);
+        font-weight: 700;
+      }
+
+      .main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+        gap: 18px;
+      }
+
+      .chart-panel,
+      .rank-panel {
+        padding: 18px;
+      }
+
+      .chart-bars {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .bar-row {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 1fr) 54px;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .track {
+        height: 12px;
+        border-radius: 999px;
+        background: #e5ece9;
+        overflow: hidden;
+      }
+
+      .fill {
+        height: 100%;
+        border-radius: inherit;
+        background: var(--blue);
+      }
+
+      .fill.teal {
+        background: var(--teal);
+      }
+
+      .fill.amber {
+        background: var(--amber);
+      }
+
+      .fill.red {
+        background: var(--red);
+      }
+
+      .rank-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .rank-item {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #e0e8e5;
+        border-radius: 8px;
+        background: #fbfcfc;
+      }
+
+      .rank-no {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: #e8efec;
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .rank-title {
+        min-width: 0;
+      }
+
+      .rank-title b {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+      }
+
+      .rank-title span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .chat-layout {
+        display: grid;
+        grid-template-columns: 270px minmax(0, 1fr) 300px;
+        gap: 16px;
+        min-height: calc(100vh - 122px);
+      }
+
+      .session-rail,
+      .conversation,
+      .context-panel {
+        min-height: 0;
+      }
+
+      .session-rail {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .role-card {
+        border: 1px solid #dce6e2;
+        border-radius: 8px;
+        padding: 12px;
+        background: #fbfcfc;
+      }
+
+      .role-card.active {
+        border-color: #0f8f83;
+        background: #eef8f6;
+      }
+
+      .role-card b {
+        display: block;
+        font-size: 14px;
+      }
+
+      .role-card span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .conversation {
+        display: grid;
+        grid-template-rows: 64px minmax(0, 1fr) auto;
+        overflow: hidden;
+      }
+
+      .chat-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .chat-head h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .chat-body {
+        padding: 18px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(15, 143, 131, 0.08), transparent 34%),
+          #f8faf9;
+      }
+
+      .message {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .message.user {
+        grid-template-columns: minmax(0, 1fr) 34px;
+      }
+
+      .face {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: #17211f;
+        color: #fff;
+        font-weight: 800;
+      }
+
+      .message.user .face {
+        background: var(--blue);
+      }
+
+      .bubble {
+        width: fit-content;
+        max-width: 78%;
+        padding: 12px 14px;
+        border: 1px solid #dce5e2;
+        border-radius: 8px;
+        background: #fff;
+        line-height: 1.65;
+        font-size: 14px;
+      }
+
+      .message.user .bubble {
+        justify-self: end;
+        background: #17211f;
+        color: #fff;
+        border-color: #17211f;
+      }
+
+      .message.user .face {
+        grid-column: 2;
+      }
+
+      .message.user .bubble {
+        grid-row: 1;
+      }
+
+      .composer {
+        border-top: 1px solid var(--line);
+        padding: 12px;
+        background: #fff;
+      }
+
+      .tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .toggle {
+        border: 1px solid #d5e0dc;
+        border-radius: 999px;
+        background: #f8faf9;
+        color: var(--muted);
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .composer-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 88px;
+        gap: 10px;
+      }
+
+      textarea {
+        min-height: 68px;
+        resize: none;
+        border: 1px solid #d5e0dc;
+        border-radius: 8px;
+        padding: 12px;
+        outline: 0;
+      }
+
+      .context-panel {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .context-block {
+        border-top: 1px solid #e0e8e5;
+        padding-top: 14px;
+      }
+
+      .context-block:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .context-block h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+      }
+
+      .source {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .audit-line {
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr);
+        gap: 9px;
+        margin-bottom: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .audit-line::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        margin-top: 4px;
+        border-radius: 50%;
+        background: var(--teal);
+      }
+
+      @media (max-width: 1160px) {
+        .preview-shell {
+          grid-template-columns: 82px minmax(0, 1fr);
+        }
+
+        .brand div:last-child,
+        .nav-item span:last-child,
+        .nav-label,
+        .sidebar-foot {
+          display: none;
+        }
+
+        .sidebar {
+          align-items: center;
+        }
+
+        .hero-grid,
+        .main-grid,
+        .chat-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .context-panel {
+          display: none;
+        }
+
+        .grid-4 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        .preview-shell {
+          display: block;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          flex-direction: row;
+          overflow-x: auto;
+          width: 100%;
+        }
+
+        .brand,
+        .nav-section {
+          display: flex;
+          align-items: center;
+        }
+
+        .topbar {
+          grid-template-columns: 1fr;
+          height: auto;
+        }
+
+        .topbar > *,
+        .search,
+        .mode-switch,
+        .profile {
+          min-width: 0;
+          max-width: calc(100vw - 28px);
+        }
+
+        .hero-panel {
+          grid-template-columns: 1fr;
+          padding: 20px;
+        }
+
+        .hero-panel,
+        .side-panel,
+        .module-card,
+        .chart-panel,
+        .rank-panel,
+        .session-rail,
+        .conversation,
+        .context-panel {
+          width: 100%;
+          max-width: calc(100vw - 28px);
+        }
+
+        h1 {
+          font-size: 28px;
+          line-break: anywhere;
+          word-break: break-all;
+          max-width: calc(100vw - 68px);
+        }
+
+        .lead {
+          max-width: 100%;
+          word-break: break-all;
+        }
+
+        .chat-head {
+          min-height: 96px;
+          height: auto;
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 14px;
+        }
+
+        .chat-head .btn {
+          height: 32px;
+        }
+
+        .bubble {
+          max-width: 92%;
+        }
+
+        .grid-4 {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace {
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"><img src="/favicon.ico" alt="" /></div>
+          <div>
+            <strong>PLNM</strong>
+            <span>学习生活一体化</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-label">工作台</div>
+          <button class="nav-item active" data-screen="home"><span class="mark">H</span><span>首页概览</span></button>
+          <button class="nav-item" data-screen="chat"><span class="mark">AI</span><span>智能协作</span></button>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-label">模块</div>
+          <button class="nav-item"><span class="mark">N</span><span>笔记中心</span></button>
+          <button class="nav-item"><span class="mark">L</span><span>生活中心</span></button>
+          <button class="nav-item"><span class="mark">S</span><span>学习中心</span></button>
+        </div>
+
+        <div class="sidebar-foot">
+          <b>今日状态</b>
+          <span>笔记、预算、课程进度聚合为一条行动线，减少页面来回跳转。</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <label class="search">
+            <span>Search</span>
+            <input placeholder="搜索笔记、课程、消费记录或 AI 对话" />
+          </label>
+          <div class="mode-switch" aria-label="预览页面">
+            <button class="active" data-screen="home">首页</button>
+            <button data-screen="chat">AI 对话</button>
+          </div>
+          <div class="profile">
+            <div class="avatar"></div>
+            <span>newuser</span>
+          </div>
+        </header>
+
+        <section id="home" class="screen active">
+          <div class="hero-grid">
+            <section class="hero-panel">
+              <div>
+                <div class="eyebrow">2026.04.22 / 个人管理中心</div>
+                <h1>把学习、笔记和生活支出整理成一张今日行动图。</h1>
+                <p class="lead">首页不再只是统计数字，而是把待处理笔记、预算风险、课程进度和 AI 周报放在同一视野里，适合毕业设计演示时快速讲清系统价值。</p>
+                <div class="action-row">
+                  <button class="btn primary">新建笔记</button>
+                  <button class="btn">记录消费</button>
+                  <button class="btn">更新课程</button>
+                  <button class="btn">生成周报</button>
+                </div>
+              </div>
+              <div class="mission-strip">
+                <div class="mission-item"><span class="dot teal"></span><div><b>Vue 项目实战</b><span>进度 68%，建议今晚补组件通信笔记</span></div><span>+10%</span></div>
+                <div class="mission-item"><span class="dot amber"></span><div><b>本月预算</b><span>餐饮占比偏高，剩余 8 天需控制日均</span></div><span>73%</span></div>
+                <div class="mission-item"><span class="dot"></span><div><b>笔记整理</b><span>20 篇笔记可生成标签关系视图</span></div><span>20</span></div>
+              </div>
+            </section>
+
+            <aside class="side-panel">
+              <div class="panel-head">
+                <h2>AI 周报摘要</h2>
+                <span class="chip">已审计</span>
+              </div>
+              <div class="review-list">
+                <div class="review-item"><div><b>学习节奏</b><span>近 7 天有 4 天保持更新，建议把课程拆成 3 个短任务。</span></div><span>稳定</span></div>
+                <div class="review-item"><div><b>消费结构</b><span>支出集中在餐饮和交通，预算提醒应前置到首页。</span></div><span>注意</span></div>
+                <div class="review-item"><div><b>创作机会</b><span>可以从学习笔记中提炼毕业设计答辩材料。</span></div><span>可执行</span></div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="grid-4">
+            <article class="module-card"><div class="metric-label">笔记总数</div><div class="metric-value">20</div><div class="metric-foot"><span>最近更新 03-17</span><span class="trend">+4</span></div></article>
+            <article class="module-card"><div class="metric-label">本月支出</div><div class="metric-value">￥1,284</div><div class="metric-foot"><span>餐饮占比 42%</span><span class="trend">可控</span></div></article>
+            <article class="module-card"><div class="metric-label">学习进度</div><div class="metric-value">68%</div><div class="metric-foot"><span>3 门课程活跃</span><span class="trend">+12%</span></div></article>
+            <article class="module-card"><div class="metric-label">AI 协作</div><div class="metric-value">37</div><div class="metric-foot"><span>审计日志完整</span><span class="trend">UP</span></div></article>
+          </div>
+
+          <div class="main-grid">
+            <section class="chart-panel">
+              <div class="panel-head">
+                <h2>模块活动趋势</h2>
+                <span class="chip">最近 30 天</span>
+              </div>
+              <div class="chart-bars">
+                <div class="bar-row"><span>笔记</span><div class="track"><div class="fill teal" style="width: 82%"></div></div><span>82%</span></div>
+                <div class="bar-row"><span>学习</span><div class="track"><div class="fill" style="width: 68%"></div></div><span>68%</span></div>
+                <div class="bar-row"><span>生活</span><div class="track"><div class="fill amber" style="width: 73%"></div></div><span>73%</span></div>
+                <div class="bar-row"><span>AI</span><div class="track"><div class="fill red" style="width: 44%"></div></div><span>44%</span></div>
+              </div>
+            </section>
+
+            <aside class="rank-panel">
+              <div class="panel-head">
+                <h2>优先处理</h2>
+                <span class="chip">5 项</span>
+              </div>
+              <div class="rank-list">
+                <div class="rank-item"><span class="rank-no">1</span><div class="rank-title"><b>补充智能体协作说明</b><span>笔记中心</span></div><span>今天</span></div>
+                <div class="rank-item"><span class="rank-no">2</span><div class="rank-title"><b>整理消费分类 Top5</b><span>生活中心</span></div><span>明天</span></div>
+                <div class="rank-item"><span class="rank-no">3</span><div class="rank-title"><b>更新学习资源库链接</b><span>学习中心</span></div><span>本周</span></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="chat" class="screen">
+          <div class="chat-layout">
+            <aside class="session-rail">
+              <div class="panel-head">
+                <h2>角色协作</h2>
+                <span class="chip">5 角色</span>
+              </div>
+              <div class="role-card active"><b>系统操作员</b><span>解析指令，连接笔记、生活、学习模块。</span></div>
+              <div class="role-card"><b>笔记助手</b><span>基于笔记库回答，生成摘要和标签。</span></div>
+              <div class="role-card"><b>生活管家</b><span>检查预算风险和消费结构。</span></div>
+              <div class="role-card"><b>学习导师</b><span>拆分课程目标，追踪学习进度。</span></div>
+              <div class="role-card"><b>创作搭档</b><span>辅助答辩稿、周报和创意内容。</span></div>
+            </aside>
+
+            <section class="conversation">
+              <header class="chat-head">
+                <div>
+                  <h1>系统操作员</h1>
+                  <span class="metric-label">非流式执行 / 可跨角色引用</span>
+                </div>
+                <button class="btn">审计日志</button>
+              </header>
+              <div class="chat-body">
+                <div class="message"><div class="face">AI</div><div class="bubble">我已读取你的笔记、消费和学习上下文。可以直接告诉我要执行的操作，或让我生成今日复盘。</div></div>
+                <div class="message user"><div class="face">U</div><div class="bubble">把 Vue 课程进度加 10%，并生成一条学习笔记摘要。</div></div>
+                <div class="message"><div class="face">AI</div><div class="bubble">已识别为学习进度更新与笔记生成。建议把操作拆成两步：先更新课程进度，再将今日学习内容保存到笔记中心，并标记为“Vue3”。</div></div>
+              </div>
+              <footer class="composer">
+                <div class="tool-row">
+                  <span class="toggle">跨角色引用</span>
+                  <span class="toggle">SSE 通道</span>
+                  <span class="toggle">保存审计</span>
+                </div>
+                <div class="composer-row">
+                  <textarea placeholder="输入要让智能体完成的任务"></textarea>
+                  <button class="btn primary">发送</button>
+                </div>
+              </footer>
+            </section>
+
+            <aside class="context-panel">
+              <div class="context-block">
+                <div class="panel-head">
+                  <h2>引用上下文</h2>
+                  <span class="chip">3 条</span>
+                </div>
+                <div class="source"><span>Vue3 项目实战</span><b>68%</b></div>
+                <div class="source"><span>本周复盘笔记</span><b>笔记</b></div>
+                <div class="source"><span>AI 角色配置</span><b>系统</b></div>
+              </div>
+              <div class="context-block">
+                <h3>执行审计</h3>
+                <div class="audit-line">角色：system_operator；模块：learning_progress。</div>
+                <div class="audit-line">动作：UPDATE_PROGRESS；状态：待确认。</div>
+                <div class="audit-line">延迟：预估 320ms；结果将写入审计日志。</div>
+              </div>
+              <div class="context-block">
+                <h3>快捷操作</h3>
+                <div class="action-row">
+                  <button class="btn">转笔记</button>
+                  <button class="btn">复制</button>
+                  <button class="btn">导出</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const buttons = document.querySelectorAll("[data-screen]");
+      const screens = document.querySelectorAll(".screen");
+      const setScreen = (id) => {
+        screens.forEach((screen) => screen.classList.toggle("active", screen.id === id));
+        buttons.forEach((button) => button.classList.toggle("active", button.dataset.screen === id));
+        const nextUrl = `${location.pathname}?screen=${id}`;
+        if (location.search !== `?screen=${id}`) {
+          history.replaceState(null, "", nextUrl);
+        }
+        requestAnimationFrame(() => window.scrollTo(0, 0));
+      };
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => setScreen(button.dataset.screen));
+      });
+      const params = new URLSearchParams(location.search);
+      if (params.get("screen") === "chat") {
+        setScreen("chat");
+      }
+    </script>
+  </body>
+</html>

@@ -1,30 +1,22 @@
 <template>
-  <div class="note-editor-container">
-    <!-- 编辑器头部 -->
-    <div class="editor-header">
+  <div :class="['note-editor-container', { 'is-focus-mode': isFocusMode, 'is-preview-mode': showPreview }]">
+    <button v-if="isFocusMode" type="button" class="focus-exit-button" @click="toggleFocusMode">
+      <el-icon><Close /></el-icon>
+      退出沉浸
+    </button>
+
+    <header v-show="!isFocusMode" class="editor-header editor-commandbar">
       <div class="header-left">
-        <el-button
-          link
-          @click="goBack"
-          class="back-btn"
-        >
+        <el-button link @click="goBack" class="back-btn">
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
-        
-        <div class="title-section">
-          <el-input
-            v-model="noteForm.title"
-            placeholder="请输入标题..."
-            class="title-input"
-            :class="{ 'title-focused': titleFocused }"
-            @focus="titleFocused = true"
-            @blur="titleFocused = false"
-            @input="handleTitleChange"
-          />
+        <div class="editor-title-meta">
+          <span class="eyebrow">NOTE STUDIO</span>
+          <strong>{{ isEdit ? '编辑笔记' : '新建笔记' }}</strong>
         </div>
       </div>
-      
+
       <div class="header-right">
         <div class="doc-stats">
           <span>{{ plainTextLength }} 字</span>
@@ -33,7 +25,7 @@
         <div class="save-status">
           <span v-if="saveStatus === 'saving'" class="status-text saving">
             <el-icon class="loading"><Loading /></el-icon>
-            保存中...
+            保存中
           </span>
           <span v-else-if="saveStatus === 'saved'" class="status-text saved">
             <el-icon><Check /></el-icon>
@@ -44,158 +36,226 @@
             保存失败
           </span>
           <span v-else-if="savedAtText" class="status-text saved-time">
-            最近保存 {{ savedAtText }}
+            {{ savedAtText }}
           </span>
         </div>
-        
+
+        <el-tooltip content="大纲" placement="bottom">
+          <el-button @click="showSidebar = !showSidebar" :class="{ active: showSidebar }" class="utility-btn">
+            <el-icon><Operation /></el-icon>
+          </el-button>
+        </el-tooltip>
         <el-button @click="showPreview = !showPreview" :class="['preview-btn', { active: showPreview }]">
           <el-icon><View /></el-icon>
           {{ showPreview ? '编辑' : '预览' }}
         </el-button>
-        
-        <el-button type="primary" @click="saveNote" :loading="saving">
+        <el-button @click="toggleFocusMode" class="focus-btn">
+          <el-icon><FullScreen /></el-icon>
+          沉浸
+        </el-button>
+        <el-button type="primary" @click="saveNote" :loading="saving" class="save-btn">
           <el-icon><DocumentAdd /></el-icon>
           {{ isEdit ? '更新' : '发布' }}
         </el-button>
       </div>
-    </div>
+    </header>
 
-    <!-- 工具栏 -->
-    <div class="editor-toolbar" v-if="!showPreview">
-      <div class="toolbar-section">
-        <el-button-group class="format-group">
-          <el-button
-            size="small"
-            @click="formatText('bold')"
-            :class="{ active: isFormatActive('bold') }"
-          >
-            <strong>B</strong>
-          </el-button>
-          <el-button
-            size="small"
-            @click="formatText('italic')"
-            :class="{ active: isFormatActive('italic') }"
-          >
-            <em style="font-style: italic; font-weight: bold; font-size: 14px;">I</em>
-          </el-button>
-          <el-button
-            size="small"
-            @click="formatText('underline')"
-            :class="{ active: isFormatActive('underline') }"
-          >
-            <u>U</u>
-          </el-button>
-          <el-button
-            size="small"
-            @click="formatText('strikethrough')"
-            :class="{ active: isFormatActive('strikethrough') }"
-          >
-            <s>S</s>
-          </el-button>
-        </el-button-group>
-        
-        <el-divider direction="vertical" />
-        
-        <el-button-group class="heading-group">
-          <el-dropdown @command="insertHeading">
-            <el-button size="small">
-              标题 <el-icon><ArrowDown /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="h1">标题 1</el-dropdown-item>
-                <el-dropdown-item command="h2">标题 2</el-dropdown-item>
-                <el-dropdown-item command="h3">标题 3</el-dropdown-item>
-                <el-dropdown-item command="h4">标题 4</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </el-button-group>
-        
-        <el-divider direction="vertical" />
-        
-        <el-button-group class="list-group">
-          <el-button size="small" @click="insertList('ul')">
-            <el-icon><List /></el-icon>
-          </el-button>
-          <el-button size="small" @click="insertList('ol')">
-            有序列表
-          </el-button>
-          <el-button size="small" @click="insertQuote()">
-            <span style="font-weight: bold; font-size: 14px;">"</span>
-          </el-button>
-        </el-button-group>
-        
-        <el-divider direction="vertical" />
-        
-        <el-button-group class="insert-group">
-          <el-button size="small" @click="insertLink()">
-            <el-icon><Link /></el-icon>
-          </el-button>
-          <el-button size="small" @click="insertImage()">
-            <el-icon><Picture /></el-icon>
-          </el-button>
-          <el-button size="small" @click="insertTable()">
-            <el-icon><Grid /></el-icon>
-          </el-button>
-          <el-button size="small" @click="insertCode()">
-            <span style="font-family: monospace; font-weight: bold; font-size: 14px;">&lt;/&gt;</span>
-          </el-button>
-        </el-button-group>
-      </div>
-      
-      <div class="toolbar-right">
-        <el-button size="small" @click="showTagManager = true">
-          <el-icon><PriceTag /></el-icon>
-          标签
-        </el-button>
-      </div>
-    </div>
+    <div :class="['editor-body', { 'outline-open': showSidebar }]">
+      <aside v-show="!isFocusMode" class="editor-side-panel meta-panel">
+        <section class="side-section">
+          <header>
+            <el-icon><Finished /></el-icon>
+            <span>写作状态</span>
+          </header>
+          <div class="metric-list">
+            <div>
+              <strong>{{ plainTextLength }}</strong>
+              <span>字数</span>
+            </div>
+            <div>
+              <strong>{{ readingMinutes }}</strong>
+              <span>分钟</span>
+            </div>
+          </div>
+        </section>
 
-    <!-- 编辑器主体 -->
-    <div class="editor-body">
-      <!-- 侧边栏 -->
-      <div class="editor-sidebar" v-if="showSidebar">
+        <section class="side-section">
+          <header>
+            <el-icon><CollectionTag /></el-icon>
+            <span>标签</span>
+            <button type="button" @click="showTagManager = true">管理</button>
+          </header>
+          <div v-if="noteForm.tags.length" class="side-tags">
+            <el-tag v-for="tag in noteForm.tags" :key="tag.id" :color="tag.color" size="small" class="note-tag">
+              {{ tag.name }}
+            </el-tag>
+          </div>
+          <button v-else type="button" class="empty-side-action" @click="showTagManager = true">添加标签</button>
+        </section>
+
+        <section class="side-section quick-section">
+          <header>
+            <el-icon><MagicStick /></el-icon>
+            <span>快速插入</span>
+          </header>
+          <div class="quick-grid">
+            <button type="button" @click="insertHeading('h2')">H2</button>
+            <button type="button" @click="insertList('ul')">列表</button>
+            <button type="button" @click="insertQuote()">引用</button>
+            <button type="button" @click="insertCode()">代码</button>
+          </div>
+        </section>
+      </aside>
+
+      <main class="editor-content" :class="{ 'with-sidebar': showSidebar }">
+        <section class="writing-page">
+          <div class="writing-page-head">
+            <span class="mode-chip">
+              <el-icon><EditPen /></el-icon>
+              {{ showPreview ? '预览' : '编辑' }}
+            </span>
+            <el-input
+              v-model="noteForm.title"
+              placeholder="请输入标题..."
+              class="title-input"
+              :class="{ 'title-focused': titleFocused }"
+              @focus="titleFocused = true"
+              @blur="titleFocused = false"
+              @input="handleTitleChange"
+            />
+            <div v-if="noteForm.tags.length" class="editor-tag-strip">
+              <el-tag v-for="tag in noteForm.tags" :key="tag.id" :color="tag.color" size="small" class="note-tag">
+                {{ tag.name }}
+              </el-tag>
+            </div>
+          </div>
+
+          <div v-show="!isFocusMode && !showPreview" class="editor-toolbar editor-inline-toolbar">
+            <div class="toolbar-section">
+              <el-button-group class="format-group">
+                <el-tooltip content="加粗" placement="bottom">
+                  <el-button size="small" @click="formatText('bold')" :class="{ active: isFormatActive('bold') }">
+                    <strong>B</strong>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="斜体" placement="bottom">
+                  <el-button size="small" @click="formatText('italic')" :class="{ active: isFormatActive('italic') }">
+                    <em>I</em>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="下划线" placement="bottom">
+                  <el-button size="small" @click="formatText('underline')" :class="{ active: isFormatActive('underline') }">
+                    <u>U</u>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="删除线" placement="bottom">
+                  <el-button size="small" @click="formatText('strikethrough')" :class="{ active: isFormatActive('strikethrough') }">
+                    <s>S</s>
+                  </el-button>
+                </el-tooltip>
+              </el-button-group>
+
+              <el-divider direction="vertical" />
+
+              <el-dropdown @command="insertHeading">
+                <el-button size="small">
+                  标题 <el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="h1">标题 1</el-dropdown-item>
+                    <el-dropdown-item command="h2">标题 2</el-dropdown-item>
+                    <el-dropdown-item command="h3">标题 3</el-dropdown-item>
+                    <el-dropdown-item command="h4">标题 4</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+              <el-divider direction="vertical" />
+
+              <el-button-group class="list-group">
+                <el-tooltip content="无序列表" placement="bottom">
+                  <el-button size="small" @click="insertList('ul')">
+                    <el-icon><List /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-button size="small" @click="insertList('ol')">有序列表</el-button>
+                <el-button size="small" @click="insertQuote()">引用</el-button>
+              </el-button-group>
+
+              <el-divider direction="vertical" />
+
+              <el-button-group class="insert-group">
+                <el-tooltip content="链接" placement="bottom">
+                  <el-button size="small" @click="insertLink()">
+                    <el-icon><Link /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="图片" placement="bottom">
+                  <el-button size="small" @click="insertImage()">
+                    <el-icon><Picture /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="表格" placement="bottom">
+                  <el-button size="small" @click="insertTable()">
+                    <el-icon><Grid /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-button size="small" @click="insertCode()">&lt;/&gt;</el-button>
+              </el-button-group>
+            </div>
+
+            <div class="toolbar-right">
+              <el-button size="small" @click="showTagManager = true">
+                <el-icon><PriceTag /></el-icon>
+                标签
+              </el-button>
+            </div>
+          </div>
+
+          <div v-show="!showPreview" class="edit-mode">
+            <div
+              ref="editorRef"
+              class="rich-editor"
+              contenteditable="true"
+              @input="handleContentChange"
+              @keydown="handleKeydown"
+              @paste="handlePaste"
+              @compositionstart="handleCompositionStart"
+              @compositionupdate="handleCompositionUpdate"
+              @compositionend="handleCompositionEnd"
+            ></div>
+          </div>
+
+          <div v-show="showPreview" class="preview-mode">
+            <div class="preview-content markdown-body" v-html="renderedContent"></div>
+          </div>
+        </section>
+      </main>
+
+      <aside v-show="!isFocusMode && showSidebar" class="editor-sidebar">
         <div class="sidebar-header">
           <h4>大纲</h4>
           <el-button link @click="showSidebar = false">
             <el-icon><Close /></el-icon>
           </el-button>
         </div>
-        <div class="outline-content">
-          <div
+        <div v-if="outline.length" class="outline-content">
+          <button
             v-for="heading in outline"
             :key="heading.id"
+            type="button"
             :class="['outline-item', `level-${heading.level}`]"
             @click="scrollToHeading(heading.id)"
           >
             {{ heading.text }}
-          </div>
+          </button>
         </div>
-      </div>
-      
-      <!-- 编辑区域 -->
-      <div class="editor-content" :class="{ 'with-sidebar': showSidebar }">
-        <!-- 编辑模式：使用 v-show 保留 DOM，避免切换预览丢失编辑内容 -->
-        <div v-show="!showPreview" class="edit-mode">
-          <div
-            ref="editorRef"
-            class="rich-editor"
-            contenteditable="true"
-            @input="handleContentChange"
-            @keydown="handleKeydown"
-            @paste="handlePaste"
-            @compositionstart="handleCompositionStart"
-            @compositionupdate="handleCompositionUpdate"
-            @compositionend="handleCompositionEnd"
-          ></div>
+        <div v-else class="outline-empty">
+          <el-icon><Memo /></el-icon>
+          暂无大纲
         </div>
-
-        <!-- 预览模式：使用 v-show 避免销毁编辑器 DOM -->
-        <div v-show="showPreview" class="preview-mode">
-          <div class="preview-content markdown-body" v-html="renderedContent"></div>
-        </div>
-      </div>
+      </aside>
     </div>
 
     <!-- 标签管理弹窗 -->
@@ -380,7 +440,14 @@ import {
   PriceTag,
   Close,
   Plus,
-  Upload
+  Upload,
+  FullScreen,
+  Operation,
+  Finished,
+  CollectionTag,
+  MagicStick,
+  EditPen,
+  Memo
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -401,6 +468,7 @@ const saveStatus = ref('') // 'saving', 'saved', 'error'
 const titleFocused = ref(false)
 const showPreview = ref(false)
 const showSidebar = ref(false)
+const isFocusMode = ref(false)
 
 // 输入法状态管理
 const isComposing = ref(false)
@@ -640,6 +708,28 @@ const goBack = () => {
 
 const hasUnsavedChanges = () => {
   return snapshotContent() !== initialSnapshot.value
+}
+
+const toggleFocusMode = async () => {
+  isFocusMode.value = !isFocusMode.value
+  if (isFocusMode.value) {
+    showSidebar.value = false
+  }
+  await nextTick()
+  editorRef.value?.focus()
+}
+
+const handleEditorGlobalKeydown = (event) => {
+  if (event.key === 'Escape' && isFocusMode.value) {
+    event.preventDefault()
+    toggleFocusMode()
+    return
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'f') {
+    event.preventDefault()
+    toggleFocusMode()
+  }
 }
 
 const handleTitleChange = () => {
@@ -1050,6 +1140,8 @@ const loadNote = async () => {
 
 // 生命周期
 onMounted(async () => {
+  window.addEventListener('keydown', handleEditorGlobalKeydown)
+
   // 加载标签数据
   await noteStore.fetchTags()
   
@@ -1089,6 +1181,12 @@ onUnmounted(() => {
   if (autoSaveTimer) {
     clearTimeout(autoSaveTimer)
   }
+  window.removeEventListener('keydown', handleEditorGlobalKeydown)
+  document.body.classList.remove('note-editor-focus')
+})
+
+watch(isFocusMode, (value) => {
+  document.body.classList.toggle('note-editor-focus', value)
 })
 
 // 监听路由变化
@@ -1792,6 +1890,593 @@ watch(
     width: calc(100% - 24px);
     margin: 12px auto;
     padding: 20px 16px;
+  }
+}
+
+/* writing studio redesign */
+:global(body.note-editor-focus) {
+  overflow: hidden;
+}
+
+:global(body.note-editor-focus .plnm-rail),
+:global(body.note-editor-focus .workspace-topbar),
+:global(body.note-editor-focus .back-to-top) {
+  display: none !important;
+}
+
+:global(body.note-editor-focus .plnm-shell) {
+  grid-template-columns: minmax(0, 1fr) !important;
+  height: 100vh;
+  overflow: hidden;
+  background: #f3f7fb;
+}
+
+:global(body.note-editor-focus .plnm-main) {
+  grid-template-rows: minmax(0, 1fr) !important;
+  min-height: 100vh;
+}
+
+:global(body.note-editor-focus .workspace-content) {
+  height: 100vh;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+:global(body.note-editor-focus .content-canvas) {
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  padding: 0 !important;
+}
+
+.note-editor-container {
+  --editor-bg: #edf3f8;
+  --editor-surface: #ffffff;
+  --editor-soft: #f7fafc;
+  --editor-ink: #172033;
+  --editor-muted: #66758b;
+  --editor-line: #d7e1ec;
+  --editor-primary: #1f6feb;
+  height: calc(100vh - 112px);
+  min-height: 680px;
+  overflow: hidden;
+  border: 1px solid var(--editor-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(31, 111, 235, 0.08), rgba(22, 163, 74, 0.06)),
+    var(--editor-bg);
+  color: var(--editor-ink);
+}
+
+.note-editor-container.is-focus-mode {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  height: 100vh;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: #f5f8fb;
+}
+
+.editor-commandbar {
+  min-height: 72px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--editor-line);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.editor-title-meta {
+  display: grid;
+  gap: 2px;
+}
+
+.editor-title-meta .eyebrow {
+  color: #16845a;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.editor-title-meta strong {
+  color: var(--editor-ink);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.editor-commandbar .header-right {
+  gap: 8px;
+}
+
+.editor-commandbar .el-button {
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.doc-stats {
+  min-width: 110px;
+  border-radius: 8px;
+  border-color: var(--editor-line);
+  background: var(--editor-soft);
+  color: var(--editor-muted);
+}
+
+.save-status {
+  min-width: 86px;
+  min-height: 36px;
+  justify-content: center;
+  border: 1px solid var(--editor-line);
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.utility-btn.active,
+.preview-btn.active,
+.focus-btn:hover {
+  border-color: #bed6ff;
+  color: #1557c0;
+  background: #e9f2ff;
+}
+
+.save-btn {
+  background: var(--editor-primary);
+  border-color: var(--editor-primary);
+}
+
+.focus-exit-button {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  z-index: 1010;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--editor-line);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--editor-ink);
+  box-shadow: 0 14px 36px rgba(33, 54, 86, 0.12);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.editor-toolbar {
+  min-height: 52px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--editor-line);
+  background: rgba(248, 251, 255, 0.95);
+  overflow-x: auto;
+}
+
+.editor-inline-toolbar {
+  position: static !important;
+  top: auto !important;
+  z-index: 4;
+  width: 100%;
+  min-height: 50px;
+  border-width: 0 0 1px !important;
+  border-radius: 0 !important;
+  padding: 9px 34px !important;
+  background: #fbfdff !important;
+  box-shadow: none !important;
+}
+
+.toolbar-section {
+  gap: 8px;
+}
+
+.editor-toolbar .el-divider--vertical {
+  height: 24px;
+  border-left-color: var(--editor-line);
+}
+
+.editor-toolbar .el-button {
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.format-group .el-button,
+.list-group .el-button,
+.insert-group .el-button {
+  min-width: 34px;
+  padding: 6px 9px;
+}
+
+.format-group .el-button em {
+  font-style: italic;
+  font-weight: 900;
+}
+
+.format-group .el-button.active {
+  background: var(--editor-primary);
+  border-color: var(--editor-primary);
+  color: #ffffff;
+}
+
+.editor-body {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.editor-body.outline-open {
+  grid-template-columns: 232px minmax(0, 1fr) 284px;
+}
+
+.note-editor-container.is-focus-mode .editor-body {
+  height: 100vh;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+}
+
+.editor-side-panel,
+.editor-sidebar {
+  min-width: 0;
+  width: auto;
+  border: 1px solid var(--editor-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(33, 54, 86, 0.05);
+  overflow: hidden;
+}
+
+.editor-side-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 10px;
+}
+
+.side-section {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e4ebf3;
+}
+
+.side-section:last-child {
+  border-bottom: 0;
+}
+
+.side-section header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--editor-muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.side-section header button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--editor-primary);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.metric-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-list div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e4ebf3;
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--editor-soft);
+}
+
+.metric-list strong {
+  color: var(--editor-ink);
+  font-size: 24px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-list span {
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.side-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.empty-side-action {
+  min-height: 36px;
+  border: 1px dashed #bed6ff;
+  border-radius: 8px;
+  background: #f4f9ff;
+  color: var(--editor-primary);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-grid button {
+  min-height: 34px;
+  border: 1px solid #e4ebf3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--editor-ink);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.quick-grid button:hover {
+  border-color: #bed6ff;
+  background: #e9f2ff;
+}
+
+.editor-content {
+  min-width: 0;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+}
+
+.editor-content.with-sidebar {
+  border-left: 0;
+}
+
+.writing-page {
+  height: 100%;
+  overflow-y: auto;
+  border: 1px solid var(--editor-line);
+  border-radius: 8px;
+  background: var(--editor-surface);
+  box-shadow: 0 16px 40px rgba(33, 54, 86, 0.07);
+}
+
+.note-editor-container.is-focus-mode .writing-page {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.writing-page-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  padding: 22px 34px 14px;
+  border-bottom: 1px solid #edf2f7;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.mode-chip {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #e9f2ff;
+  color: #1557c0;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.title-section {
+  max-width: none;
+}
+
+.title-input {
+  width: 100%;
+}
+
+.title-input :deep(.el-input__wrapper) {
+  min-height: 52px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+.title-input :deep(.el-input__inner) {
+  height: auto;
+  color: var(--editor-ink);
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.title-input.title-focused :deep(.el-input__wrapper) {
+  border-bottom: 0;
+}
+
+.editor-tag-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-editor-container.is-focus-mode .writing-page-head {
+  padding-top: 52px;
+}
+
+.note-editor-container.is-focus-mode .mode-chip,
+.note-editor-container.is-focus-mode .editor-tag-strip {
+  display: none;
+}
+
+.edit-mode,
+.preview-mode {
+  display: block;
+  min-height: 0;
+  overflow: visible;
+}
+
+.rich-editor,
+.preview-content {
+  width: min(860px, calc(100% - 68px));
+  min-height: 520px;
+  margin: 0 auto;
+  padding: 30px 0 72px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #223047;
+  font-size: 17px;
+  line-height: 1.82;
+}
+
+.note-editor-container.is-focus-mode .rich-editor,
+.note-editor-container.is-focus-mode .preview-content {
+  width: min(860px, calc(100% - 84px));
+  min-height: calc(100vh - 160px);
+}
+
+.rich-editor:empty::before {
+  content: '开始写下正文...';
+  color: #9aa8ba;
+}
+
+.rich-editor h1,
+.rich-editor h2,
+.rich-editor h3,
+.rich-editor h4,
+.rich-editor h5,
+.rich-editor h6,
+.preview-content :deep(h1),
+.preview-content :deep(h2),
+.preview-content :deep(h3),
+.preview-content :deep(h4) {
+  color: var(--editor-ink);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.rich-editor h1,
+.preview-content :deep(h1) {
+  border-bottom: 1px solid #e4ebf3;
+  padding-bottom: 10px;
+  font-size: 30px;
+}
+
+.rich-editor blockquote,
+.preview-content :deep(blockquote) {
+  border-left: 4px solid var(--editor-primary);
+  border-radius: 8px;
+  background: #f4f9ff;
+  color: #526276;
+}
+
+.rich-editor pre,
+.preview-content :deep(pre) {
+  border: 1px solid #172033;
+  border-radius: 8px;
+  background: #0f172a;
+  box-shadow: none;
+}
+
+.rich-editor code,
+.preview-content :deep(code) {
+  border-radius: 6px;
+  background: #eef6ff;
+  color: #1557c0;
+}
+
+.rich-editor pre code,
+.preview-content :deep(pre code) {
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.rich-editor table,
+.preview-content :deep(table) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  min-height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e4ebf3;
+}
+
+.sidebar-header h4 {
+  color: var(--editor-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.outline-content {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.outline-item {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #526276;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.outline-item:hover {
+  background: #e9f2ff;
+  color: var(--editor-primary);
+}
+
+.outline-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 180px;
+  color: #8a97aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 1200px) {
+  .editor-body,
+  .editor-body.outline-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-side-panel,
+  .editor-sidebar {
+    display: none !important;
   }
 }
 </style>

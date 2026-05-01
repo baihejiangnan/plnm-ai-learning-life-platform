@@ -306,4 +306,84 @@
     opacity: 0;
   }
 }
+
+/* v2 local redesign */
+.login-container {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(37, 99, 235, 0.16), transparent 28%),
+    radial-gradient(circle at 78% 12%, rgba(5, 150, 105, 0.14), transparent 30%),
+    linear-gradient(135deg, #eef6ff 0%, #f8fafc 48%, #ecfdf5 100%);
+  animation: none;
+}
+
+.login-container::before,
+.login-container::after {
+  display: none;
+}
+
+.login-box {
+  width: 420px;
+  border: 1px solid #d8e2ed;
+  border-radius: 22px;
+  padding: 34px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.login-box:hover {
+  transform: none;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+}
+
+.login-title {
+  margin-bottom: 28px;
+  color: #0f172a;
+  font-size: 30px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+.login-title::before {
+  content: 'PLNM';
+  display: block;
+  width: max-content;
+  margin: 0 auto 10px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.login-input :deep(.el-input__wrapper) {
+  min-height: 46px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px #d8e2ed inset;
+}
+
+.login-button {
+  min-height: 46px;
+  border-radius: 14px;
+  background: #0f172a;
+  box-shadow: none;
+  letter-spacing: 0;
+}
+
+.login-button:hover {
+  transform: none;
+  background: #1e293b;
+  box-shadow: none;
+}
+
+.register-link {
+  color: #64748b;
+}
+
+.register-link a {
+  color: #0f172a;
+}
 </style>

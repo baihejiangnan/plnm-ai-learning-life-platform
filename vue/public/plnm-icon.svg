@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PLNM">
+  <defs>
+    <linearGradient id="plnm-bg" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="0.55" stop-color="#0ea5a4"/>
+      <stop offset="1" stop-color="#16a34a"/>
+    </linearGradient>
+    <linearGradient id="plnm-paper" x1="23" y1="18" x2="43" y2="47" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#plnm-bg)"/>
+  <path d="M23 17h14l8 8v22H23V17z" fill="url(#plnm-paper)" opacity="0.96"/>
+  <path d="M37 17v9h8" fill="none" stroke="#1d4ed8" stroke-width="2.4" stroke-linejoin="round" opacity="0.75"/>
+  <path d="M28 31h12M28 37h12M28 43h8" stroke="#0f766e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M16 45c4-7 8-9 13-9" fill="none" stroke="#bbf7d0" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="18" cy="44" r="2.5" fill="#bbf7d0"/>
+</svg>

@@ -31,6 +31,17 @@ public class NotificationController {
         }
     }
 
+    @GetMapping("/overview")
+    @Operation(summary = "通知概览")
+    public Result overview(@RequestParam Integer userId) {
+        try {
+            Map<String, Object> data = notificationService.overview(userId);
+            return Result.success(data);
+        } catch (Exception e) {
+            return Result.error("获取通知概览失败: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/read")
     @Operation(summary = "标记为已读")
     public Result markRead(@RequestBody Map<String, Object> body) {

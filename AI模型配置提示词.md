@@ -39,7 +39,7 @@ spring:
   ai:
     openai:
       base-url: ${AI_BASE_URL:https://aihubmix.com}
-      api-key: sk-3jQN7tMLjq9P7nfoF44b3c40625543A4B23b94B48123099b
+      api-key: ${AI_API_KEY:你的真实 API Key}
 ```
 
 以及 `app.ai` 部分（约第 116-121 行）：

@@ -1,0 +1,1403 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PLNM UI Redesign v2</title>
+    <style>
+      :root {
+        --bg: #edf3f7;
+        --surface: #ffffff;
+        --surface-2: #f7fafc;
+        --surface-3: #eef5f8;
+        --ink: #0f172a;
+        --ink-2: #263445;
+        --muted: #64748b;
+        --line: #d8e3ea;
+        --line-strong: #b9c8d3;
+        --blue: #2563eb;
+        --blue-soft: #e7efff;
+        --green: #16a34a;
+        --green-soft: #e8f7ee;
+        --amber: #d97706;
+        --amber-soft: #fff3df;
+        --red: #dc2626;
+        --red-soft: #feeceb;
+        --teal: #0f766e;
+        --nav: #0b1220;
+        --nav-2: #111c2d;
+        --shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+        --radius: 8px;
+        --gap: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 0;
+      }
+
+      body {
+        margin: 0;
+        min-width: 0;
+        min-height: 100dvh;
+        overflow-x: hidden;
+        color: var(--ink);
+        background:
+          linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 34%),
+          linear-gradient(315deg, rgba(15, 118, 110, 0.08), transparent 42%),
+          var(--bg);
+        font-family: "Fira Sans", "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      select:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.28);
+        outline-offset: 2px;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 244px minmax(0, 1fr);
+        min-height: 100dvh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100dvh;
+        padding: 16px 12px;
+        color: #d9e5ee;
+        background: linear-gradient(180deg, var(--nav), var(--nav-2));
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .brand {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .brand-badge {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius);
+        display: grid;
+        place-items: center;
+        background: #e8f1ff;
+        color: var(--blue);
+      }
+
+      .brand-badge svg,
+      .icon svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 17px;
+        letter-spacing: 0;
+      }
+
+      .brand span {
+        display: block;
+        margin-top: 2px;
+        color: #9fb0c1;
+        font-size: 12px;
+      }
+
+      .nav-group {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav-title {
+        padding: 0 10px;
+        color: #8da0b4;
+        font-size: 12px;
+      }
+
+      .nav-button {
+        width: 100%;
+        min-height: 44px;
+        border: 0;
+        border-radius: var(--radius);
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        color: #d9e5ee;
+        background: transparent;
+        text-align: left;
+      }
+
+      .nav-button:hover {
+        background: rgba(255, 255, 255, 0.07);
+      }
+
+      .nav-button.active {
+        color: #0b1220;
+        background: #eef6ff;
+      }
+
+      .icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .nav-button.active .icon {
+        color: #ffffff;
+        background: var(--blue);
+      }
+
+      .nav-button span.label {
+        min-width: 0;
+        font-weight: 650;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .count {
+        border-radius: 999px;
+        padding: 2px 7px;
+        color: inherit;
+        background: rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+
+      .nav-button.active .count {
+        background: #dce9ff;
+      }
+
+      .rail-card {
+        margin-top: auto;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .rail-card strong {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 7px;
+      }
+
+      .rail-card p {
+        margin: 0;
+        color: #9fb0c1;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .main {
+        min-width: 0;
+        max-width: 100%;
+        padding: 16px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: var(--gap);
+        align-items: center;
+        margin-bottom: var(--gap);
+      }
+
+      .command {
+        min-width: 0;
+        height: 46px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px;
+        padding: 0 12px;
+        background: rgba(255, 255, 255, 0.88);
+      }
+
+      .command input {
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+      }
+
+      .kbd {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 3px 7px;
+        color: var(--muted);
+        background: var(--surface-2);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .page-switch {
+        display: flex;
+        min-width: 0;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.9);
+      }
+
+      .page-switch button {
+        min-width: 92px;
+        height: 36px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .page-switch button.active {
+        color: #fff;
+        background: var(--nav);
+      }
+
+      .profile {
+        height: 46px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+        background: rgba(255, 255, 255, 0.9);
+        white-space: nowrap;
+      }
+
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--blue), var(--teal));
+      }
+
+      .screen {
+        display: none;
+        min-width: 0;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      .home-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.72fr);
+        gap: var(--gap);
+        align-items: stretch;
+      }
+
+      .panel,
+      .metric,
+      .task-card,
+      .chat-shell,
+      .role-panel,
+      .context-panel {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        min-height: 314px;
+        padding: 22px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 310px;
+        gap: 20px;
+        overflow: hidden;
+      }
+
+      .eyebrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        color: var(--teal);
+        font-size: 13px;
+        font-weight: 750;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      h1 {
+        margin: 12px 0;
+        font-size: 40px;
+        line-height: 1.08;
+        letter-spacing: 0;
+        max-width: 100%;
+      }
+
+      .hero-title span {
+        display: inline;
+      }
+
+      .lead {
+        margin: 0;
+        max-width: 720px;
+        color: var(--muted);
+        line-height: 1.75;
+        font-size: 15px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-top: 20px;
+      }
+
+      .btn {
+        min-height: 40px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        padding: 0 14px;
+        color: var(--ink);
+        background: #fff;
+      }
+
+      .btn.primary {
+        border-color: var(--nav);
+        color: #fff;
+        background: var(--nav);
+      }
+
+      .btn.ghost {
+        background: var(--surface-2);
+      }
+
+      .status-stack {
+        display: grid;
+        gap: 10px;
+        align-content: stretch;
+      }
+
+      .status-card {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--surface-2);
+      }
+
+      .status-card header,
+      .metric header,
+      .panel-head,
+      .task-card header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .status-card b,
+      .task-card b {
+        display: block;
+        min-width: 0;
+        font-size: 13px;
+      }
+
+      .status-card p,
+      .task-card p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .pill {
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        padding: 4px 9px;
+        color: var(--muted);
+        background: #fff;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .pill.green {
+        color: #166534;
+        border-color: #bce3c9;
+        background: var(--green-soft);
+      }
+
+      .pill.amber {
+        color: #92400e;
+        border-color: #f3d39b;
+        background: var(--amber-soft);
+      }
+
+      .pill.blue {
+        color: #1d4ed8;
+        border-color: #c7d8ff;
+        background: var(--blue-soft);
+      }
+
+      .weekly {
+        padding: 18px;
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .insight-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .insight {
+        display: grid;
+        grid-template-columns: 10px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: start;
+        padding: 10px 0;
+        border-bottom: 1px solid #e5edf2;
+      }
+
+      .insight:last-child {
+        border-bottom: 0;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-top: 5px;
+        background: var(--blue);
+      }
+
+      .dot.green {
+        background: var(--green);
+      }
+
+      .dot.amber {
+        background: var(--amber);
+      }
+
+      .insight b {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      .insight span {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: var(--gap);
+        margin: var(--gap) 0;
+      }
+
+      .metric {
+        padding: 14px;
+      }
+
+      .metric label {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 9px;
+      }
+
+      .value {
+        font-family: "Fira Code", Consolas, monospace;
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .metric small {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.68fr) minmax(320px, 0.68fr);
+        gap: var(--gap);
+      }
+
+      .chart-panel {
+        padding: 16px;
+      }
+
+      .bars {
+        display: grid;
+        gap: 13px;
+        margin-top: 16px;
+      }
+
+      .bar-row {
+        display: grid;
+        grid-template-columns: 78px minmax(0, 1fr) 52px;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .track {
+        height: 11px;
+        border-radius: 999px;
+        background: #e5edf2;
+        overflow: hidden;
+      }
+
+      .fill {
+        height: 100%;
+        border-radius: inherit;
+        background: var(--blue);
+      }
+
+      .fill.green {
+        background: var(--green);
+      }
+
+      .fill.amber {
+        background: var(--amber);
+      }
+
+      .fill.red {
+        background: var(--red);
+      }
+
+      .task-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .task-card {
+        padding: 12px;
+        box-shadow: none;
+        background: var(--surface-2);
+      }
+
+      .module-map {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .map-row {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #fff;
+      }
+
+      .map-id {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--nav);
+        font-weight: 800;
+        font-size: 12px;
+      }
+
+      .map-row b {
+        display: block;
+        font-size: 13px;
+      }
+
+      .map-row span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .chat-layout {
+        display: grid;
+        grid-template-columns: 286px minmax(0, 1fr) 320px;
+        gap: var(--gap);
+        height: calc(100dvh - 94px);
+        min-height: 620px;
+      }
+
+      .role-panel,
+      .context-panel {
+        padding: 14px;
+        overflow: auto;
+      }
+
+      .role-list {
+        display: grid;
+        gap: 9px;
+        margin-top: 14px;
+      }
+
+      .role-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--surface-2);
+      }
+
+      .role-card.active {
+        border-color: #86d4bd;
+        background: #eefbf7;
+      }
+
+      .role-card header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .role-card b {
+        font-size: 14px;
+      }
+
+      .role-card p {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .chat-shell {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        overflow: hidden;
+      }
+
+      .chat-header {
+        min-width: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .chat-title {
+        min-width: 0;
+      }
+
+      .chat-title h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .chat-title p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .chat-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .chat-body {
+        min-width: 0;
+        overflow: auto;
+        padding: 16px;
+        background:
+          linear-gradient(180deg, rgba(37, 99, 235, 0.06), transparent 40%),
+          var(--surface-3);
+      }
+
+      .message {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        margin-bottom: 14px;
+      }
+
+      .message.user {
+        grid-template-columns: minmax(0, 1fr) 34px;
+      }
+
+      .face {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--nav);
+        font-weight: 850;
+        font-size: 12px;
+      }
+
+      .message.user .face {
+        grid-column: 2;
+        background: var(--blue);
+      }
+
+      .bubble {
+        max-width: min(720px, 82%);
+        width: fit-content;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        background: #fff;
+        line-height: 1.7;
+        font-size: 14px;
+      }
+
+      .message.user .bubble {
+        grid-row: 1;
+        justify-self: end;
+        color: #fff;
+        border-color: var(--nav);
+        background: var(--nav);
+      }
+
+      .citation-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .citation {
+        border: 1px solid #c8d9ff;
+        border-radius: 999px;
+        padding: 3px 8px;
+        color: #1d4ed8;
+        background: #eef4ff;
+        font-size: 12px;
+      }
+
+      .composer {
+        border-top: 1px solid var(--line);
+        padding: 12px;
+        background: #fff;
+      }
+
+      .tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+
+      .toggle {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 10px;
+        color: var(--muted);
+        background: var(--surface-2);
+        font-size: 12px;
+      }
+
+      .toggle.on {
+        color: #166534;
+        border-color: #bce3c9;
+        background: var(--green-soft);
+      }
+
+      .input-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 92px;
+        gap: 10px;
+      }
+
+      textarea {
+        min-width: 0;
+        min-height: 72px;
+        resize: none;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        outline: 0;
+      }
+
+      .context-section {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 14px;
+      }
+
+      .context-section:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .context-section h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+
+      .context-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid #e5edf2;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .context-item:last-child {
+        border-bottom: 0;
+      }
+
+      .audit {
+        display: grid;
+        grid-template-columns: 9px minmax(0, 1fr);
+        gap: 9px;
+        margin: 9px 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .audit::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        margin-top: 5px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        .nav-button,
+        .btn,
+        .page-switch button,
+        .role-card,
+        .task-card {
+          transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+        }
+
+        .btn:hover,
+        .role-card:hover,
+        .task-card:hover {
+          transform: translateY(-1px);
+        }
+      }
+
+      @media (max-width: 1240px) {
+        .home-layout,
+        .dashboard-grid,
+        .chat-layout {
+          grid-template-columns: 1fr;
+          height: auto;
+        }
+
+        .context-panel {
+          display: none;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 900px) {
+        .app {
+          grid-template-columns: 76px minmax(0, 1fr);
+        }
+
+        .rail {
+          align-items: center;
+          padding: 12px 8px;
+        }
+
+        .brand {
+          grid-template-columns: 42px;
+          padding: 6px 0 12px;
+        }
+
+        .brand div:last-child,
+        .nav-title,
+        .nav-button .label,
+        .nav-button .count,
+        .rail-card {
+          display: none;
+        }
+
+        .nav-button {
+          grid-template-columns: 30px;
+          justify-content: center;
+          padding: 0;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          grid-template-columns: 1fr;
+        }
+
+        .page-switch button {
+          flex: 1;
+        }
+      }
+
+      @media (max-width: 640px) {
+        html,
+        body {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+
+        .app {
+          display: block;
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+
+        .rail {
+          position: static;
+          width: 100%;
+          height: auto;
+          flex-direction: row;
+          overflow-x: auto;
+          gap: 8px;
+        }
+
+        .brand,
+        .nav-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .main {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
+          padding: 12px;
+        }
+
+        .screen,
+        .home-layout,
+        .dashboard-grid,
+        .chat-layout,
+        .metrics {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+
+        .command,
+        .page-switch,
+        .profile,
+        .panel,
+        .metric,
+        .task-card,
+        .chat-shell,
+        .role-panel,
+        .context-panel {
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .hero {
+          padding: 14px;
+        }
+
+        h1 {
+          font-size: 24px;
+          line-height: 1.18;
+          width: 100%;
+          max-width: calc(100vw - 52px);
+          white-space: normal;
+          overflow-wrap: anywhere;
+          line-break: anywhere;
+          word-break: break-all;
+        }
+
+        .lead {
+          width: 100%;
+          max-width: calc(100vw - 52px);
+          white-space: normal;
+          overflow-wrap: anywhere;
+          line-break: anywhere;
+          word-break: break-all;
+        }
+
+        .hero > div,
+        .status-stack,
+        .status-card,
+        .weekly,
+        .chart-panel {
+          width: 100%;
+          max-width: calc(100vw - 52px);
+          overflow: hidden;
+        }
+
+        .status-card p,
+        .task-card p,
+        .role-card p,
+        .bubble {
+          white-space: normal;
+          overflow-wrap: anywhere;
+          line-break: anywhere;
+          word-break: break-all;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          width: 100%;
+        }
+
+        .actions .btn {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .status-card header,
+        .task-card header,
+        .metric header,
+        .panel-head {
+          align-items: flex-start;
+          flex-wrap: wrap;
+        }
+
+        .status-card .pill,
+        .task-card .pill,
+        .insight .pill,
+        .panel-head .pill {
+          flex-shrink: 0;
+        }
+
+        .status-card header,
+        .task-card header {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .role-card header {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          align-items: flex-start;
+        }
+
+        .status-card .pill,
+        .task-card .pill,
+        .role-card .pill {
+          width: fit-content;
+          margin-top: 4px;
+        }
+
+        .hero-title span {
+          display: block;
+        }
+
+        .metrics {
+          grid-template-columns: 1fr;
+        }
+
+        .chat-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .chat-actions {
+          justify-content: flex-start;
+        }
+
+        .bubble {
+          max-width: 92%;
+        }
+
+        .input-row {
+          grid-template-columns: 1fr;
+        }
+
+        .input-row .btn {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="主导航">
+        <div class="brand">
+          <div class="brand-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" fill="currentColor" opacity=".18"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </div>
+          <div><strong>PLNM</strong><span>Personal Learning & Life</span></div>
+        </div>
+
+        <nav class="nav-group">
+          <div class="nav-title">工作区</div>
+          <button class="nav-button active" data-screen="home" aria-label="首页概览">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 13h6V4H4v9Zm10 7h6V4h-6v16ZM4 20h6v-4H4v4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            <span class="label">首页概览</span><span class="count">4</span>
+          </button>
+          <button class="nav-button" data-screen="chat" aria-label="AI 智能体">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3m0 12v3M4.2 7.5l2.6 1.5m10.4 6 2.6 1.5M4.2 16.5l2.6-1.5m10.4-6 2.6-1.5M8 9h8v6H8V9Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="label">AI 智能体</span><span class="count">5</span>
+          </button>
+        </nav>
+
+        <nav class="nav-group">
+          <div class="nav-title">模块</div>
+          <button class="nav-button" aria-label="笔记中心">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4Z" stroke="currentColor" stroke-width="1.8"/><path d="M14 4v4h4M8.5 12h7M8.5 16h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            <span class="label">笔记中心</span><span class="count">20</span>
+          </button>
+          <button class="nav-button" aria-label="生活中心">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 8h14v11H5V8Zm3-3h8v3H8V5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 13h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            <span class="label">生活中心</span><span class="count">73%</span>
+          </button>
+          <button class="nav-button" aria-label="学习中心">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5 12 3l8 3.5-8 3.5-8-3.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 10v5c0 1.2 2.2 3 5 3s5-1.8 5-3v-5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            <span class="label">学习中心</span><span class="count">68%</span>
+          </button>
+        </nav>
+
+        <div class="rail-card">
+          <strong>设计原则</strong>
+          <p>数据密度高但可扫读；AI 页面保留上下文与审计，适合毕业设计演示。</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <label class="command">
+            <span aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="m21 21-4.2-4.2M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="#64748b" stroke-width="2" stroke-linecap="round"/></svg></span>
+            <input aria-label="全局搜索" placeholder="搜索笔记、课程、账单、AI 对话" />
+            <span class="kbd">Ctrl K</span>
+          </label>
+          <div class="page-switch" aria-label="预览页面切换">
+            <button class="active" data-screen="home">首页</button>
+            <button data-screen="chat">AI 对话</button>
+          </div>
+          <div class="profile" aria-label="当前用户"><span class="avatar" aria-hidden="true"></span><span>newuser</span></div>
+        </header>
+
+        <section id="home" class="screen active">
+          <div class="home-layout">
+            <section class="panel hero">
+              <div>
+                <div class="eyebrow"><span>PLNM 控制台</span><span class="pill blue">Vue 3 + Spring Boot</span></div>
+                <h1 class="hero-title"><span>把笔记、预算、学习和 AI 协作</span><span>整合成今日行动图。</span></h1>
+                <p class="lead">重设计后的首页不再堆叠卡片，而是把“今天应该处理什么”放在第一屏。数字指标、风险提醒、AI 周报和模块入口在同一条工作流里展示。</p>
+                <div class="actions">
+                  <button class="btn primary">新建笔记</button>
+                  <button class="btn">记录消费</button>
+                  <button class="btn">更新课程</button>
+                  <button class="btn ghost">生成周报</button>
+                </div>
+              </div>
+              <div class="status-stack">
+                <article class="status-card"><header><b>Vue 项目实战</b><span class="pill green">+10%</span></header><p>建议今晚补充“组件通信”学习笔记，并同步到学习进度。</p></article>
+                <article class="status-card"><header><b>餐饮预算</b><span class="pill amber">73%</span></header><p>本月剩余 8 天，餐饮类支出接近阈值，需要日均提醒。</p></article>
+                <article class="status-card"><header><b>笔记关系</b><span class="pill blue">20 篇</span></header><p>可基于标签和浏览量生成毕业设计答辩素材。</p></article>
+              </div>
+            </section>
+
+            <aside class="panel weekly">
+              <div class="panel-head"><h2>AI 周报摘要</h2><span class="pill green">审计已记录</span></div>
+              <div class="insight-list">
+                <div class="insight"><span class="dot green"></span><div><b>学习节奏</b><span>近 7 天有 4 天持续更新，适合拆成 3 个短任务。</span></div><span class="pill">稳定</span></div>
+                <div class="insight"><span class="dot amber"></span><div><b>消费结构</b><span>餐饮与交通占比偏高，应在首页提前提醒。</span></div><span class="pill amber">注意</span></div>
+                <div class="insight"><span class="dot"></span><div><b>创作机会</b><span>学习笔记可以提炼为答辩“系统特色”章节。</span></div><span class="pill blue">可执行</span></div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="metrics" aria-label="关键指标">
+            <article class="metric"><label>笔记总数</label><div class="value">20</div><small>最近更新 03-17，标签结构可用</small></article>
+            <article class="metric"><label>本月支出</label><div class="value">￥1,284</div><small>餐饮占比 42%，预算状态可控</small></article>
+            <article class="metric"><label>学习进度</label><div class="value">68%</div><small>3 门课程活跃，今日建议 +10%</small></article>
+            <article class="metric"><label>AI 协作</label><div class="value">37</div><small>审计日志完整，5 个角色可用</small></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel chart-panel">
+              <div class="panel-head"><h2>模块活跃度</h2><span class="pill">最近 30 天</span></div>
+              <div class="bars">
+                <div class="bar-row"><span>笔记</span><div class="track"><div class="fill green" style="width: 82%"></div></div><span>82%</span></div>
+                <div class="bar-row"><span>学习</span><div class="track"><div class="fill" style="width: 68%"></div></div><span>68%</span></div>
+                <div class="bar-row"><span>生活</span><div class="track"><div class="fill amber" style="width: 73%"></div></div><span>73%</span></div>
+                <div class="bar-row"><span>AI</span><div class="track"><div class="fill red" style="width: 44%"></div></div><span>44%</span></div>
+              </div>
+            </section>
+
+            <section class="panel chart-panel">
+              <div class="panel-head"><h2>今日优先处理</h2><span class="pill">3 项</span></div>
+              <div class="task-list">
+                <article class="task-card"><header><b>补充智能体协作说明</b><span class="pill blue">笔记</span></header><p>整理系统操作员、学习导师、生活管家的协作边界。</p></article>
+                <article class="task-card"><header><b>更新 Vue 课程进度</b><span class="pill green">学习</span></header><p>将进度从 68% 更新到 78%，生成学习摘要。</p></article>
+                <article class="task-card"><header><b>检查本月餐饮预算</b><span class="pill amber">生活</span></header><p>生成分类 Top5，并设置提醒阈值。</p></article>
+              </div>
+            </section>
+
+            <section class="panel chart-panel">
+              <div class="panel-head"><h2>模块入口地图</h2><span class="pill">快速导航</span></div>
+              <div class="module-map">
+                <div class="map-row"><span class="map-id">N</span><div><b>笔记中心</b><span>写作、标签、版本、浏览量</span></div><span>20</span></div>
+                <div class="map-row"><span class="map-id">L</span><div><b>生活中心</b><span>消费、预算、分类统计</span></div><span>73%</span></div>
+                <div class="map-row"><span class="map-id">S</span><div><b>学习中心</b><span>课程、资源、进度追踪</span></div><span>68%</span></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="chat" class="screen">
+          <div class="chat-layout">
+            <aside class="role-panel">
+              <div class="panel-head"><h2>智能体角色</h2><span class="pill">5 个</span></div>
+              <div class="role-list">
+                <article class="role-card active"><header><b>系统操作员</b><span class="pill green">执行</span></header><p>解析自然语言指令，连接笔记、生活、学习模块。</p></article>
+                <article class="role-card"><header><b>笔记助手</b><span class="pill">知识库</span></header><p>基于笔记内容回答，生成摘要、标签和复盘。</p></article>
+                <article class="role-card"><header><b>生活管家</b><span class="pill amber">预算</span></header><p>分析消费结构、预算阈值和分类趋势。</p></article>
+                <article class="role-card"><header><b>学习导师</b><span class="pill blue">计划</span></header><p>拆分课程目标，追踪学习进度和资源状态。</p></article>
+                <article class="role-card"><header><b>创作搭档</b><span class="pill">创作</span></header><p>辅助答辩稿、周报、总结和展示材料。</p></article>
+              </div>
+            </aside>
+
+            <section class="chat-shell">
+              <header class="chat-header">
+                <div class="chat-title">
+                  <h1>系统操作员</h1>
+                  <p>非流式执行 / 可跨角色引用 / 审计日志开启</p>
+                </div>
+                <div class="chat-actions">
+                  <button class="btn">新对话</button>
+                  <button class="btn">导出</button>
+                  <button class="btn primary">审计日志</button>
+                </div>
+              </header>
+
+              <div class="chat-body" aria-label="AI 对话内容">
+                <div class="message">
+                  <div class="face">AI</div>
+                  <div class="bubble">我已读取你的笔记、消费和学习上下文。你可以直接描述要完成的操作，我会先解释意图，再给出可执行结果。</div>
+                </div>
+                <div class="message user">
+                  <div class="face">U</div>
+                  <div class="bubble">把 Vue 课程进度加 10%，并生成一条学习笔记摘要。</div>
+                </div>
+                <div class="message">
+                  <div class="face">AI</div>
+                  <div class="bubble">已识别为“学习进度更新 + 笔记生成”。建议先更新课程进度到 78%，再创建标题为“Vue3 组件通信复盘”的笔记。<div class="citation-strip"><span class="citation">Vue 项目实战 68%</span><span class="citation">本周复盘笔记</span><span class="citation">AI 审计</span></div></div>
+                </div>
+              </div>
+
+              <footer class="composer">
+                <div class="tool-row">
+                  <span class="toggle on">跨角色引用</span>
+                  <span class="toggle">SSE 通道</span>
+                  <span class="toggle on">保存审计</span>
+                  <span class="toggle">转为笔记</span>
+                </div>
+                <div class="input-row">
+                  <textarea aria-label="输入 AI 指令" placeholder="输入你要让智能体完成的任务，例如：把课程进度加 10%，并写一条笔记摘要"></textarea>
+                  <button class="btn primary">发送</button>
+                </div>
+              </footer>
+            </section>
+
+            <aside class="context-panel">
+              <section class="context-section">
+                <div class="panel-head"><h2>引用上下文</h2><span class="pill blue">3 条</span></div>
+                <div class="context-item"><span>Vue 项目实战</span><b>68%</b></div>
+                <div class="context-item"><span>本周复盘笔记</span><b>笔记</b></div>
+                <div class="context-item"><span>AI 角色配置</span><b>系统</b></div>
+              </section>
+              <section class="context-section">
+                <h2>执行审计</h2>
+                <div class="audit">角色：system_operator；模块：learning_progress。</div>
+                <div class="audit">动作：UPDATE_PROGRESS；状态：待确认。</div>
+                <div class="audit">结果将写入 ai_audit_log，并关联 traceId。</div>
+              </section>
+              <section class="context-section">
+                <h2>快捷动作</h2>
+                <div class="actions">
+                  <button class="btn">复制</button>
+                  <button class="btn">转笔记</button>
+                  <button class="btn">前往课程</button>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const buttons = Array.from(document.querySelectorAll("[data-screen]"));
+      const screens = Array.from(document.querySelectorAll(".screen"));
+      function setScreen(id, syncUrl = true) {
+        screens.forEach((screen) => screen.classList.toggle("active", screen.id === id));
+        buttons.forEach((button) => button.classList.toggle("active", button.dataset.screen === id));
+        if (syncUrl) {
+          const nextUrl = `${location.pathname}?screen=${id}`;
+          history.replaceState(null, "", nextUrl);
+        }
+        requestAnimationFrame(() => scrollTo(0, 0));
+      }
+      buttons.forEach((button) => button.addEventListener("click", () => setScreen(button.dataset.screen)));
+      const initial = new URLSearchParams(location.search).get("screen");
+      if (initial === "chat") setScreen("chat", false);
+    </script>
+  </body>
+</html>

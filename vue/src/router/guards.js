@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { ROUTE_NAMES } from '@/constants'
 
+const APP_TITLE = 'PLNM 生活中枢'
+
 /**
  * 白名单路由（不需要登录验证）
  */
@@ -21,9 +23,9 @@ export function beforeEachGuard(to, from, next) {
   
   // 设置页面标题
   if (to.meta?.title) {
-    document.title = `${to.meta.title} - 管理系统`
+    document.title = `${to.meta.title} - ${APP_TITLE}`
   } else {
-    document.title = '管理系统'
+    document.title = APP_TITLE
   }
   
   // 检查是否在白名单中

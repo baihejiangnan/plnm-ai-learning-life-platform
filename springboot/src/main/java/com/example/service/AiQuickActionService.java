@@ -10,7 +10,6 @@ import com.example.entity.AiAuditLog;
 import com.github.pagehelper.PageInfo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -43,8 +42,8 @@ public class AiQuickActionService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final Pattern NUMBER_PATTERN = Pattern.compile("(-?\\d+(\\.\\d+)?)");
 
-    @Autowired(required = false)
-    private OpenAiChatModel openAiChatModel;
+    @Autowired
+    private DeepSeekChatClient deepSeekChatClient;
 
     @Autowired
     private NoteService noteService;
@@ -190,12 +189,7 @@ public class AiQuickActionService {
     }
 
     private String callModelSafely(String prompt, Double temperature, Double topP) {
-        if (openAiChatModel == null) return null;
-        try {
-            return openAiChatModel.call(prompt);
-        } catch (Exception ignored) {
-            return null;
-        }
+        return deepSeekChatClient.chat(prompt, temperature, topP);
     }
 
     public RolePrompt prepareRolePrompt(Integer userId, AiRoleConfigService.AiRole role, String text, String crossRoleContext) {
@@ -424,7 +418,7 @@ public class AiQuickActionService {
     }
 
     private ParsedAction parseByAi(String message) {
-        if (openAiChatModel == null) {
+        if (!deepSeekChatClient.isConfigured()) {
             return null;
         }
         String prompt = """
@@ -452,7 +446,7 @@ public class AiQuickActionService {
                 用户输入：%s
                 """.formatted(message);
         try {
-            String raw = openAiChatModel.call(prompt);
+            String raw = deepSeekChatClient.chat(prompt, 0.1, 0.8);
             return parseJsonAction(raw);
         } catch (Exception ignored) {
             return null;
