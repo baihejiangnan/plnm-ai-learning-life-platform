@@ -284,9 +284,9 @@ export const DEFAULT_AVATAR = '/images/default-avatar.png'
  * 系统配置
  */
 export const SYSTEM_CONFIG = {
-  APP_NAME: 'PLNM 生活中枢',
+  APP_NAME: 'PLNM - 基于多智能体协作的个人学习生活平台',
   APP_VERSION: '1.0.0',
-  COPYRIGHT: '© 2024 PLNM 生活中枢. All rights reserved.',
+  COPYRIGHT: '© 2024 PLNM - 基于多智能体协作的个人学习生活平台. All rights reserved.',
   CONTACT_EMAIL: 'admin@example.com'
 }
 

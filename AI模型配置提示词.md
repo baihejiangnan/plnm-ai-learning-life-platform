@@ -6,7 +6,7 @@
 
 ## 项目 AI 配置说明
 
-这是一个 Spring Boot 3 + Vue 3 的个人学习生活管理系统（PLNM），AI 功能通过 Spring AI 的 OpenAI 兼容接口接入大模型。以下是完整的配置方法和注意事项。
+这是一个 Spring Boot 3 + Vue 3 的个人学习生活平台（PLNM），AI 功能通过 Spring AI 的 OpenAI 兼容接口接入大模型。以下是完整的配置方法和注意事项。
 
 ---
 

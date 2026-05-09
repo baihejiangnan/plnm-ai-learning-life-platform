@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { ROUTE_NAMES } from '@/constants'
 
-const APP_TITLE = 'PLNM 生活中枢'
+const APP_TITLE = 'PLNM - 基于多智能体协作的个人学习生活平台'
 
 /**
  * 白名单路由（不需要登录验证）
