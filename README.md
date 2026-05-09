@@ -6,6 +6,14 @@ PLNM（Personal Learning and Life Management）是一个集成笔记管理、消
 
 ---
 
+## 项目演示
+
+[点击查看 20 秒项目演示视频](readme-assets/plnm-intro-20s.mp4)
+
+> 如果 GitHub 页面未直接预览视频，可点击链接打开视频文件。
+
+---
+
 ## 技术栈
 
 | 层级 | 技术 |
@@ -183,6 +191,9 @@ npm run dev
 
 ```
 system/
+├── readme-assets/
+│   └── plnm-intro-20s.mp4     # 项目演示视频
+│
 ├── springboot/                 # 后端项目（Spring Boot）
 │   ├── src/main/java/          # Java 源代码
 │   ├── src/main/resources/     # 配置文件、SQL 脚本
